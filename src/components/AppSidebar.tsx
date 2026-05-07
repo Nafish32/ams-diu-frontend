@@ -7,6 +7,7 @@ import { Button } from './ui/button';
 import logoImage from '../assets/logo.png';
 import toast from 'react-hot-toast';
 import { Link, useLocation } from 'react-router-dom';
+import { menuGroupsConfig } from '../config/menuGroups';
 import {
   Sidebar,
   SidebarContent,
@@ -54,15 +55,8 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ) : (
                 (() => {
-                  // Group definitions: keys are the visible group labels, values are arrays of keywords
-                  // that will be matched (tolerantly) against actual `item.label` values.
-                  const groupsConfig: Record<string, string[]> = {
-                    Admissions: ['admission', 'student', 'admit'],
-                    Exams: ['exam', 'result', 'question', 'examiner'],
-                    Reports: ['report', 'certificate', 'transcript'],
-                    Users: ['user', 'staff', 'teacher', 'account'],
-                    Settings: ['setting', 'config', 'department', 'preference'],
-                  };
+                  // Group definitions imported from config/menuGroups.ts
+                  const groupsConfig = menuGroupsConfig;
 
                   const normalize = (s: string) => s?.toLowerCase().replace(/[^a-z0-9]+/g, '').trim();
 
