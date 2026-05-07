@@ -117,7 +117,11 @@ export function Results({ gradientClass }: ResultsProps) {
     if (canRead() && user?.id) {
       loadExamResults();
     }
-  }, [user?.id, currentPage]);
+  }, [user?.id, currentPage, semesterFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [semesterFilter]);
 
   // Filter results based on search and filters
   useEffect(() => {
@@ -160,7 +164,10 @@ export function Results({ gradientClass }: ResultsProps) {
 
     try {
       setIsLoading(true);
-      const data = await examAPI.getAllResultsByTeacher(user.id);
+      const data = await examAPI.getAllResultsByTeacher(user.id, {
+        page: currentPage,
+        ...(semesterFilter !== 'all' ? { semester: semesterFilter } : {}),
+      });
       
       if (data.success) {
         setExamResults(data.data.results);
@@ -253,8 +260,8 @@ export function Results({ gradientClass }: ResultsProps) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Denied</h3>
+          <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+          <h3 className="mb-2 text-lg font-semibold text-gray-800">Access Denied</h3>
           <p className="text-gray-600">You don't have permission to access this page.</p>
         </div>
       </div>
@@ -265,38 +272,38 @@ export function Results({ gradientClass }: ResultsProps) {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF] rounded-lg p-4 sm:p-6 text-white">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-3 flex items-center gap-3">
-          <FilePlus className="h-8 w-8" />
+        <h1 className="flex items-center gap-3 mb-2 text-xl font-bold sm:text-2xl md:text-3xl sm:mb-3">
+          <FilePlus className="w-8 h-8" />
           Exam Results
         </h1>
-        <p className="text-white/90 text-sm sm:text-base leading-relaxed">
+        <p className="text-sm leading-relaxed text-white/90 sm:text-base">
           Comprehensive analysis of student exam performance and results.
         </p>
-        <div className="mt-3 flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-4 mt-3 text-sm">
           <div className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
+            <Users className="w-4 h-4" />
             <span>{totalStudents} students</span>
           </div>
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
+            <TrendingUp className="w-4 h-4" />
             <span>{formatPercentage(averageScore)} avg</span>
           </div>
           <div className="flex items-center gap-2">
-            <Trophy className="h-4 w-4" />
+            <Trophy className="w-4 h-4" />
             <span>{excellentCount} excellent</span>
           </div>
           <div className="flex items-center gap-2">
-            <Award className="h-4 w-4" />
+            <Award className="w-4 h-4" />
             <span>{goodCount} good</span>
           </div>
         </div>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card className="border-2 border-blue-200 bg-blue-50/50">
           <CardContent className="p-4 text-center">
-            <Users className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+            <Users className="w-6 h-6 mx-auto mb-2 text-blue-600" />
             <div className="text-2xl font-bold text-blue-600">{totalStudents}</div>
             <div className="text-xs text-blue-700">Total Students</div>
           </CardContent>
@@ -304,7 +311,7 @@ export function Results({ gradientClass }: ResultsProps) {
 
         <Card className="border-2 border-purple-200 bg-purple-50/50">
           <CardContent className="p-4 text-center">
-            <Trophy className="h-6 w-6 text-purple-600 mx-auto mb-2" />
+            <Trophy className="w-6 h-6 mx-auto mb-2 text-purple-600" />
             <div className="text-2xl font-bold text-purple-600">{excellentCount}</div>
             <div className="text-xs text-purple-700">Excellent (90%+)</div>
           </CardContent>
@@ -312,7 +319,7 @@ export function Results({ gradientClass }: ResultsProps) {
 
         <Card className="border-2 border-green-200 bg-green-50/50">
           <CardContent className="p-4 text-center">
-            <Award className="h-6 w-6 text-green-600 mx-auto mb-2" />
+            <Award className="w-6 h-6 mx-auto mb-2 text-green-600" />
             <div className="text-2xl font-bold text-green-600">{goodCount}</div>
             <div className="text-xs text-green-700">Good (80-89%)</div>
           </CardContent>
@@ -320,7 +327,7 @@ export function Results({ gradientClass }: ResultsProps) {
 
         <Card className="border-2 border-yellow-200 bg-yellow-50/50">
           <CardContent className="p-4 text-center">
-            <TrendingUp className="h-6 w-6 text-yellow-600 mx-auto mb-2" />
+            <TrendingUp className="w-6 h-6 mx-auto mb-2 text-yellow-600" />
             <div className="text-2xl font-bold text-yellow-600">{formatPercentage(averageScore)}</div>
             <div className="text-xs text-yellow-700">Average Score</div>
           </CardContent>
@@ -328,7 +335,7 @@ export function Results({ gradientClass }: ResultsProps) {
 
         <Card className="border-2 border-indigo-200 bg-indigo-50/50">
           <CardContent className="p-4 text-center">
-            <Target className="h-6 w-6 text-indigo-600 mx-auto mb-2" />
+            <Target className="w-6 h-6 mx-auto mb-2 text-indigo-600" />
             <div className="text-2xl font-bold text-indigo-600">
               {formatPercentage(totalStudents > 0 ? (examResults.filter(r => r.results.score_percentage >= 60).length / totalStudents) * 100 : 0)}
             </div>
@@ -341,12 +348,12 @@ export function Results({ gradientClass }: ResultsProps) {
       <Card className="border-2 border-gray-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
+            <Search className="w-5 h-5" />
             Search & Filter Results
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <Label htmlFor="search">Search Students</Label>
               <Input
@@ -398,9 +405,9 @@ export function Results({ gradientClass }: ResultsProps) {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <RefreshCw className="w-4 h-4 mr-2" />
                 )}
                 Refresh
               </Button>
@@ -413,7 +420,7 @@ export function Results({ gradientClass }: ResultsProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Trophy className="h-5 w-5" />
+            <Trophy className="w-5 h-5" />
             Student Exam Results
           </CardTitle>
           <CardDescription>
@@ -422,14 +429,14 @@ export function Results({ gradientClass }: ResultsProps) {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <div className="py-8 text-center">
+              <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin" />
               <p className="text-gray-600">Loading exam results...</p>
             </div>
           ) : filteredResults.length === 0 ? (
-            <div className="text-center py-8">
-              <FilePlus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">No Results Found</h3>
+            <div className="py-8 text-center">
+              <FilePlus className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+              <h3 className="mb-2 text-lg font-semibold text-gray-600">No Results Found</h3>
               <p className="text-gray-500">
                 {examResults.length === 0 
                   ? "No exam results available yet."
@@ -461,13 +468,13 @@ export function Results({ gradientClass }: ResultsProps) {
                       <TableRow key={`${result.student_id}-${result.exam_id}`} className="hover:bg-gray-50">
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-gray-500" />
+                            <User className="w-4 h-4 text-gray-500" />
                             <span className="font-medium">{result.student_name}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-gray-500" />
+                            <Building2 className="w-4 h-4 text-gray-500" />
                             <span className="text-sm">{result.exam_details.department}</span>
                           </div>
                         </TableCell>
@@ -478,7 +485,7 @@ export function Results({ gradientClass }: ResultsProps) {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            <CheckCircle2 className="w-4 h-4 text-green-600" />
                             <span className="font-medium text-green-600">
                               {result.results.correct_answers}
                             </span>
@@ -486,7 +493,7 @@ export function Results({ gradientClass }: ResultsProps) {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <XCircle className="h-4 w-4 text-red-600" />
+                            <XCircle className="w-4 h-4 text-red-600" />
                             <span className="font-medium text-red-600">
                               {result.results.wrong_answers}
                             </span>
@@ -497,32 +504,32 @@ export function Results({ gradientClass }: ResultsProps) {
                             variant="outline" 
                             className={`${getPerformanceColor(result.results.score_percentage)} font-medium`}
                           >
-                            <PerformanceIcon className="h-3 w-3 mr-1" />
+                            <PerformanceIcon className="w-3 h-3 mr-1" />
                             {formatPercentage(result.results.score_percentage)}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           {isVivaCompleted ? (
-                            <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-                              <Award className="h-3 w-3 mr-1" />
+                            <Badge variant="default" className="text-green-800 bg-green-100 border-green-200">
+                              <Award className="w-3 h-3 mr-1" />
                               Completed ({result.viva_marks.marks})
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="bg-yellow-50 text-yellow-800 border-yellow-200">
-                              <AlertTriangle className="h-3 w-3 mr-1" />
+                            <Badge variant="outline" className="text-yellow-800 border-yellow-200 bg-yellow-50">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
                               Pending
                             </Badge>
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center gap-2 justify-end">
+                          <div className="flex items-center justify-end gap-2">
                             <Button
                               onClick={() => openResultDialog(result)}
                               variant="outline"
                               size="sm"
                               className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                             >
-                              <Eye className="h-4 w-4 mr-1" />
+                              <Eye className="w-4 h-4 mr-1" />
                               View Results
                             </Button>
                             <Button
@@ -534,10 +541,11 @@ export function Results({ gradientClass }: ResultsProps) {
                                 : "bg-gradient-to-r from-[#2E3094] to-[#4C51BF] hover:from-[#1E2078] hover:to-[#3A3F9A] text-white"
                               }
                             >
-                              <GraduationCap className="h-4 w-4 mr-1" />
+                              <GraduationCap className="w-4 h-4 mr-1" />
                               {isVivaCompleted ? 'Update Viva' : 'Give Viva Marks'}
                             </Button>
-                            <Button
+                            
+                            {/* <Button
                               onClick={() => handlePrepareAdmissionBoard(result.exam_id)}
                               variant="outline"
                               size="sm"
@@ -545,12 +553,13 @@ export function Results({ gradientClass }: ResultsProps) {
                               className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                             >
                               {preparingExamId === result.exam_id ? (
-                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                               ) : (
-                                <RefreshCw className="h-4 w-4 mr-1" />
+                                <RefreshCw className="w-4 h-4 mr-1" />
                               )}
                               Prepare Board
-                            </Button>
+                            </Button> */}
+                            
                           </div>
                         </TableCell>
                       </TableRow>
@@ -574,7 +583,7 @@ export function Results({ gradientClass }: ResultsProps) {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
+              <BarChart3 className="w-5 h-5" />
               Detailed Result Analysis
             </DialogTitle>
             <DialogDescription>
@@ -585,12 +594,12 @@ export function Results({ gradientClass }: ResultsProps) {
           {selectedResult && (
             <div className="space-y-6">
               {/* Student Overview */}
-              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+              <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
                 <CardContent className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
-                      <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
-                        <User className="h-5 w-5" />
+                      <h3 className="flex items-center gap-2 mb-2 text-lg font-semibold">
+                        <User className="w-5 h-5" />
                         {selectedResult.student_name}
                       </h3>
                       <div className="space-y-1 text-sm">
@@ -603,7 +612,7 @@ export function Results({ gradientClass }: ResultsProps) {
                       <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border ${getPerformanceColor(selectedResult.results.score_percentage)}`}>
                         {React.createElement(getPerformanceBadgeIcon(selectedResult.results.score_percentage), { className: "h-5 w-5" })}
                         <div>
-                          <div className="font-bold text-lg">{formatPercentage(selectedResult.results.score_percentage)}</div>
+                          <div className="text-lg font-bold">{formatPercentage(selectedResult.results.score_percentage)}</div>
                           <div className="text-xs">{getPerformanceLabel(selectedResult.results.score_percentage)}</div>
                         </div>
                       </div>
@@ -613,10 +622,10 @@ export function Results({ gradientClass }: ResultsProps) {
               </Card>
 
               {/* Overall Performance */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <Card className="border-green-200 bg-green-50">
                   <CardContent className="p-4 text-center">
-                    <CheckCircle2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-600" />
                     <div className="text-2xl font-bold text-green-600">{selectedResult.results.correct_answers}</div>
                     <div className="text-sm text-green-700">Correct Answers</div>
                   </CardContent>
@@ -624,7 +633,7 @@ export function Results({ gradientClass }: ResultsProps) {
                 
                 <Card className="border-red-200 bg-red-50">
                   <CardContent className="p-4 text-center">
-                    <XCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
+                    <XCircle className="w-8 h-8 mx-auto mb-2 text-red-600" />
                     <div className="text-2xl font-bold text-red-600">{selectedResult.results.wrong_answers}</div>
                     <div className="text-sm text-red-700">Wrong Answers</div>
                   </CardContent>
@@ -632,7 +641,7 @@ export function Results({ gradientClass }: ResultsProps) {
                 
                 <Card className="border-blue-200 bg-blue-50">
                   <CardContent className="p-4 text-center">
-                    <TrendingUp className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                    <TrendingUp className="w-8 h-8 mx-auto mb-2 text-blue-600" />
                     <div className="text-2xl font-bold text-blue-600">{formatPercentage(selectedResult.results.score_percentage)}</div>
                     <div className="text-sm text-blue-700">Overall Score</div>
                   </CardContent>
@@ -643,46 +652,46 @@ export function Results({ gradientClass }: ResultsProps) {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5" />
+                    <BookOpen className="w-5 h-5" />
                     Subject-wise Performance Analysis
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {selectedResult.subjects
                       .sort((a, b) => b.score_percentage - a.score_percentage)
                       .map((subject) => {
                         const SubjectIcon = getPerformanceBadgeIcon(subject.score_percentage);
                         return (
-                          <div key={subject.subject_id} className="border rounded-lg p-4 bg-gray-50">
+                          <div key={subject.subject_id} className="p-4 border rounded-lg bg-gray-50">
                             <div className="flex items-center justify-between mb-3">
-                              <h4 className="font-semibold flex items-center gap-2">
-                                <BookOpen className="h-4 w-4 text-gray-500" />
+                              <h4 className="flex items-center gap-2 font-semibold">
+                                <BookOpen className="w-4 h-4 text-gray-500" />
                                 {subject.subject_name}
                               </h4>
                               <Badge 
                                 variant="outline" 
                                 className={`${getPerformanceColor(subject.score_percentage)} font-medium`}
                               >
-                                <SubjectIcon className="h-3 w-3 mr-1" />
+                                <SubjectIcon className="w-3 h-3 mr-1" />
                                 {formatPercentage(subject.score_percentage)}
                               </Badge>
                             </div>
                             
                             <div className="grid grid-cols-4 gap-2 text-xs text-center">
-                              <div className="bg-white p-2 rounded">
+                              <div className="p-2 bg-white rounded">
                                 <div className="font-semibold">{subject.total_questions}</div>
                                 <div className="text-gray-600">Total</div>
                               </div>
-                              <div className="bg-green-100 p-2 rounded">
+                              <div className="p-2 bg-green-100 rounded">
                                 <div className="font-semibold text-green-600">{subject.correct_answers}</div>
                                 <div className="text-gray-600">Correct</div>
                               </div>
-                              <div className="bg-red-100 p-2 rounded">
+                              <div className="p-2 bg-red-100 rounded">
                                 <div className="font-semibold text-red-600">{subject.wrong_answers}</div>
                                 <div className="text-gray-600">Wrong</div>
                               </div>
-                              <div className="bg-blue-100 p-2 rounded">
+                              <div className="p-2 bg-blue-100 rounded">
                                 <div className="font-semibold text-blue-600">
                                   {subject.total_questions - subject.correct_answers - subject.wrong_answers}
                                 </div>
@@ -700,34 +709,34 @@ export function Results({ gradientClass }: ResultsProps) {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <GraduationCap className="h-5 w-5" />
+                    <GraduationCap className="w-5 h-5" />
                     Viva Assessment
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {selectedResult?.viva_marks?.marks > 0 ? (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="p-4 border border-green-200 rounded-lg bg-green-50">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-semibold text-green-800">Viva Completed</h4>
-                        <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-                          <Award className="h-3 w-3 mr-1" />
+                        <Badge variant="default" className="text-green-800 bg-green-100 border-green-200">
+                          <Award className="w-3 h-3 mr-1" />
                           {selectedResult.viva_marks.marks} marks
                         </Badge>
                       </div>
                       {selectedResult.viva_marks.remarks && (
                         <div className="mt-3">
-                          <p className="text-sm font-medium text-green-700 mb-1">Examiner's Remarks:</p>
-                          <p className="text-sm text-green-600 bg-white p-2 rounded border">
+                          <p className="mb-1 text-sm font-medium text-green-700">Examiner's Remarks:</p>
+                          <p className="p-2 text-sm text-green-600 bg-white border rounded">
                             {selectedResult.viva_marks.remarks}
                           </p>
                         </div>
                       )}
                       {Object.keys(selectedResult.viva_marks.rubrics_marks).length > 0 && (
                         <div className="mt-3">
-                          <p className="text-sm font-medium text-green-700 mb-2">Rubric Breakdown:</p>
+                          <p className="mb-2 text-sm font-medium text-green-700">Rubric Breakdown:</p>
                           <div className="grid grid-cols-2 gap-2">
                             {Object.entries(selectedResult.viva_marks.rubrics_marks).map(([rubricId, marks]) => (
-                              <div key={rubricId} className="text-xs bg-white p-2 rounded border">
+                              <div key={rubricId} className="p-2 text-xs bg-white border rounded">
                                 <span className="font-medium">Rubric {rubricId}:</span> {marks} marks
                               </div>
                             ))}
@@ -736,9 +745,9 @@ export function Results({ gradientClass }: ResultsProps) {
                       )}
                     </div>
                   ) : (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                      <AlertTriangle className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-                      <p className="text-yellow-800 font-medium">Viva examination has not been completed</p>
+                    <div className="p-4 text-center border border-yellow-200 rounded-lg bg-yellow-50">
+                      <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-yellow-600" />
+                      <p className="font-medium text-yellow-800">Viva examination has not been completed</p>
                       <Button 
                         onClick={() => {
                           setShowResultDialog(false);
@@ -747,7 +756,7 @@ export function Results({ gradientClass }: ResultsProps) {
                         className="mt-3 bg-gradient-to-r from-[#2E3094] to-[#4C51BF] hover:from-[#1E2078] hover:to-[#3A3F9A]"
                         size="sm"
                       >
-                        <GraduationCap className="h-4 w-4 mr-1" />
+                        <GraduationCap className="w-4 h-4 mr-1" />
                         Give Viva Marks
                       </Button>
                     </div>
@@ -772,7 +781,7 @@ export function Results({ gradientClass }: ResultsProps) {
                       : "bg-gradient-to-r from-[#2E3094] to-[#4C51BF] hover:from-[#1E2078] hover:to-[#3A3F9A]"
                     }
                   >
-                    <GraduationCap className="h-4 w-4 mr-1" />
+                    <GraduationCap className="w-4 h-4 mr-1" />
                     {selectedResult.viva_marks?.marks > 0 ? 'Update Viva Marks' : 'Give Viva Marks'}
                   </Button>
                 )}

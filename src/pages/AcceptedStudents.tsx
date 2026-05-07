@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Download,
+  Eye,
   FileText,
   Loader2,
   RefreshCw,
@@ -41,7 +42,9 @@ import {
   formatReportDate,
   loadDiuLogoDataUrl,
 } from "../lib/diu-report-pdf";
+import { downloadBlobFile } from "../lib/pdf-download";
 import { admissionResultsAPI, examAPI } from "../services/api";
+import { StudentAdmissionReportDialog } from "../components/StudentAdmissionReportDialog";
 
 interface AcceptedStudentsProps {
   gradientClass?: string;
@@ -79,6 +82,11 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isReverting, setIsReverting] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [selectedReportExamId, setSelectedReportExamId] = useState<number | null>(null);
+  const [selectedReportStudentId, setSelectedReportStudentId] = useState<number | null>(null);
+  const [selectedReportStudentName, setSelectedReportStudentName] = useState("");
+  const [downloadingReportId, setDownloadingReportId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!hasReadAccess) {
@@ -358,6 +366,35 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
   useEffect(() => {
     setSelectedStudentIds([]);
   }, [activeTab, selectedSemester]);
+
+  const handleOpenReport = (result: AdmissionResult) => {
+    setSelectedReportExamId(result.exam);
+    setSelectedReportStudentId(result.student);
+    setSelectedReportStudentName(result.student_full_name || result.student_username || "Student");
+    setIsReportDialogOpen(true);
+  };
+
+  const handleDownloadReport = async (result: AdmissionResult) => {
+    setDownloadingReportId(result.id);
+    try {
+      const response = await admissionResultsAPI.downloadStudentDetailReportPdf(
+        result.exam,
+        result.student,
+      );
+
+      if (!response?.blob) {
+        throw new Error("Student report PDF is not available yet.");
+      }
+
+      downloadBlobFile(response.blob, response.filename);
+      toast.success(`Downloaded report for ${result.student_full_name || result.student_username}`);
+    } catch (reportError: any) {
+      console.error("Error downloading student report:", reportError);
+      toast.error(reportError?.message || "Failed to download student report");
+    } finally {
+      setDownloadingReportId((currentId) => (currentId === result.id ? null : currentId));
+    }
+  };
 
   useEffect(() => {
     if (parsedTopCandidateCount === null || !canRevertCurrentTab) {
@@ -674,6 +711,8 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
                           <TableHead>Written + Viva</TableHead>
                           <TableHead>Total</TableHead>
                           <TableHead>Remarks</TableHead>
+                          <TableHead className="text-center">View</TableHead>
+                          <TableHead className="text-center">Download</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -724,6 +763,33 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
                                   </div>
                                 ) : null}
                               </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenReport(result)}
+                                  aria-label={`View report for ${row.studentName}`}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDownloadReport(result)}
+                                  disabled={downloadingReportId === result.id}
+                                  aria-label={`Download report for ${row.studentName}`}
+                                >
+                                  {downloadingReportId === result.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Download className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           );
                         })}
@@ -736,6 +802,14 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
           </Tabs>
         </CardContent>
       </Card>
+
+      <StudentAdmissionReportDialog
+        open={isReportDialogOpen}
+        onOpenChange={setIsReportDialogOpen}
+        examId={selectedReportExamId}
+        studentId={selectedReportStudentId}
+        studentName={selectedReportStudentName}
+      />
     </div>
   );
 }

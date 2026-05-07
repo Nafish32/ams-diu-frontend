@@ -139,9 +139,11 @@ export const examAPI = {
   },
 
   // Get all results by teacher
-  getAllResultsByTeacher: async (teacherId) => {
+  getAllResultsByTeacher: async (teacherId, params = {}) => {
     try {
-      const response = await api.get(`/api/get-all-results-by-teacher/${teacherId}/`);
+      const response = await api.get(`/api/get-all-results-by-teacher/${teacherId}/`, {
+        params,
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -1256,6 +1258,52 @@ export const admissionResultsAPI = {
       const parsedBlobError = await parseBlobJsonError(
         error,
         'Failed to download student report',
+      );
+
+      if (parsedBlobError) {
+        throw parsedBlobError;
+      }
+
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Download multiple student admission reports as a single ZIP file
+  downloadStudentDetailReportsZip: async (reports) => {
+    try {
+      const response = await api.post(
+        '/api/admission/reports/batch/pdf/',
+        { reports },
+        {
+          responseType: 'blob',
+          headers: {
+            Accept: 'application/zip, application/json, */*',
+          },
+        },
+      );
+
+      const disposition = response.headers?.['content-disposition'] || '';
+      const utf8FilenameMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const plainFilenameMatch = disposition.match(/filename=\"?([^\";]+)\"?/i);
+      const encodedFilename = utf8FilenameMatch?.[1] || plainFilenameMatch?.[1] || '';
+
+      let filename = 'student-admission-reports.zip';
+      if (encodedFilename) {
+        try {
+          filename = decodeURIComponent(encodedFilename.trim());
+        } catch {
+          filename = encodedFilename.trim();
+        }
+      }
+
+      return {
+        blob: response.data,
+        filename,
+      };
+    } catch (error) {
+      const parsedBlobError = await parseBlobJsonError(
+        error,
+        'Failed to download student reports zip',
       );
 
       if (parsedBlobError) {

@@ -35,11 +35,19 @@ interface VivaMarksData {
   remarks: string;
 }
 
+interface SaveFeedback {
+  tone: 'success' | 'warning';
+  message: string;
+  weightedTotal?: number;
+  resultStatus?: string;
+}
+
 export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded }: VivaModalProps) {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [rubrics, setRubrics] = useState<Rubric[]>([]);
   const [loadingRubrics, setLoadingRubrics] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<SaveFeedback | null>(null);
   
   // Form state
   const [vivaMarks, setVivaMarks] = useState<VivaMarksData>({
@@ -58,6 +66,7 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
         rubrics_marks: studentResult.viva_marks?.rubrics_marks || {},
         remarks: studentResult.viva_marks?.remarks || ''
       });
+      setSaveFeedback(null);
     }
   }, [open, studentResult, user?.department_details?.id]);
 
@@ -126,6 +135,7 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
 
     try {
       setIsLoading(true);
+      setSaveFeedback(null);
       
       console.log('Sending viva marks data:', {
         student_id: studentResult.student_id,
@@ -137,10 +147,26 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
         exam_id: studentResult.exam_id,
       });
       
-      if (response && response.success) {
-        toast.success('Viva marks saved successfully');
-        onVivaMarksAdded();
-        onOpenChange(false);
+      if (response?.success || response?.viva_saved) {
+        const refreshedResult = response?.recalculated_result;
+        const successMessage = refreshedResult
+          ? `Viva saved. Total ${refreshedResult.weighted_total_marks}, status ${refreshedResult.result_status}.`
+          : response?.message || 'Viva marks saved successfully';
+        setSaveFeedback({
+          tone: response?.success ? 'success' : 'warning',
+          message: response?.message || successMessage,
+          weightedTotal: refreshedResult?.weighted_total_marks,
+          resultStatus: refreshedResult?.result_status,
+        });
+
+        if (response?.success) {
+          toast.success(successMessage);
+          onVivaMarksAdded();
+          onOpenChange(false);
+        } else {
+          toast.success(response?.message || successMessage);
+          onVivaMarksAdded();
+        }
       } else {
         toast.error(response?.message || 'Failed to save viva marks');
       }
@@ -181,7 +207,7 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
       >
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
-            <Award className="h-5 w-5" />
+            <Award className="w-5 h-5" />
             Viva Examination - {studentResult.student_name}
           </DialogTitle>
           <DialogDescription>
@@ -189,18 +215,18 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto space-y-6">
+        <div className="flex-1 space-y-6 overflow-y-auto">
           {/* Student Information */}
-          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
             <CardContent className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <h3 className="font-semibold text-lg text-blue-800">{studentResult.student_name}</h3>
+                  <h3 className="text-lg font-semibold text-blue-800">{studentResult.student_name}</h3>
                   <p className="text-blue-600">{studentResult.exam_details.department}</p>
                   <p className="text-blue-600">{studentResult.exam_details.semester}</p>
                 </div>
                 <div className="text-right">
-                  <div className="bg-white rounded-lg p-3 border border-blue-200">
+                  <div className="p-3 bg-white border border-blue-200 rounded-lg">
                     <p className="text-sm text-gray-600">Written Exam Score</p>
                     <p className="text-2xl font-bold text-blue-600">
                       {studentResult.results.score_percentage.toFixed(1)}%
@@ -219,17 +245,17 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5" />
+                  <ClipboardList className="w-5 h-5" />
                   Viva Assessment Status
                 </span>
                 {isVivaCompleted ? (
-                  <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
-                    <Award className="h-3 w-3 mr-1" />
+                  <Badge variant="default" className="text-green-800 bg-green-100 border-green-200">
+                    <Award className="w-3 h-3 mr-1" />
                     Completed
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="bg-yellow-50 text-yellow-800 border-yellow-200">
-                    <AlertTriangle className="h-3 w-3 mr-1" />
+                  <Badge variant="outline" className="text-yellow-800 border-yellow-200 bg-yellow-50">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
                     Pending
                   </Badge>
                 )}
@@ -237,7 +263,7 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
             </CardHeader>
             <CardContent>
               {isVivaCompleted ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="p-4 border border-green-200 rounded-lg bg-green-50">
                   <div className="flex items-center justify-between mb-2">
                     <p className="font-medium text-green-800">Current Viva Marks</p>
                     <span className={`text-xl font-bold ${getMarksColor(studentResult.viva_marks.marks, totalMaxMarks)}`}>
@@ -245,40 +271,90 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
                     </span>
                   </div>
                   {studentResult.viva_marks.remarks && (
-                    <p className="text-sm text-green-700 mt-2">
+                    <p className="mt-2 text-sm text-green-700">
                       <strong>Remarks:</strong> {studentResult.viva_marks.remarks}
                     </p>
                   )}
                 </div>
               ) : (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                  <AlertTriangle className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-                  <p className="text-yellow-800 font-medium">Viva examination has not been completed</p>
-                  <p className="text-yellow-600 text-sm">Use the form below to add viva marks</p>
+                <div className="p-4 text-center border border-yellow-200 rounded-lg bg-yellow-50">
+                  <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-yellow-600" />
+                  <p className="font-medium text-yellow-800">Viva examination has not been completed</p>
+                  <p className="text-sm text-yellow-600">Use the form below to add viva marks</p>
                 </div>
               )}
             </CardContent>
           </Card>
 
+          {saveFeedback && (
+            <Card
+              className={
+                saveFeedback.tone === 'success'
+                  ? 'border-green-200 bg-green-50'
+                  : 'border-amber-200 bg-amber-50'
+              }
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  {saveFeedback.tone === 'success' ? (
+                    <Award className="h-5 w-5 text-green-700 mt-0.5" />
+                  ) : (
+                    <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5" />
+                  )}
+                  <div className="space-y-1">
+                    <p
+                      className={
+                        saveFeedback.tone === 'success'
+                          ? 'font-medium text-green-800'
+                          : 'font-medium text-amber-800'
+                      }
+                    >
+                      {saveFeedback.message}
+                    </p>
+                    {(saveFeedback.weightedTotal !== undefined || saveFeedback.resultStatus) && (
+                      <p
+                        className={
+                          saveFeedback.tone === 'success'
+                            ? 'text-sm text-green-700'
+                            : 'text-sm text-amber-700'
+                        }
+                      >
+                        {saveFeedback.weightedTotal !== undefined
+                          ? `Updated total: ${saveFeedback.weightedTotal}`
+                          : null}
+                        {saveFeedback.weightedTotal !== undefined && saveFeedback.resultStatus
+                          ? ' | '
+                          : null}
+                        {saveFeedback.resultStatus
+                          ? `Result status: ${saveFeedback.resultStatus}`
+                          : null}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Viva Marks Form */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Award className="h-5 w-5" />
+                <Award className="w-5 h-5" />
                 {isVivaCompleted ? 'Update Viva Marks' : 'Add Viva Marks'}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {loadingRubrics ? (
-                <div className="text-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                <div className="py-8 text-center">
+                  <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin" />
                   <p className="text-gray-600">Loading assessment rubrics...</p>
                 </div>
               ) : rubrics.length === 0 ? (
-                <div className="text-center py-8">
-                  <AlertTriangle className="h-8 w-8 text-yellow-500 mx-auto mb-4" />
+                <div className="py-8 text-center">
+                  <AlertTriangle className="w-8 h-8 mx-auto mb-4 text-yellow-500" />
                   <p className="text-gray-600">No rubrics available for this department</p>
-                  <p className="text-gray-500 text-sm">Please add rubrics for proper assessment</p>
+                  <p className="text-sm text-gray-500">Please add rubrics for proper assessment</p>
                 </div>
               ) : (
                 <>
@@ -295,7 +371,7 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
                     
                     <div className="grid gap-4">
                       {rubrics.map((rubric) => (
-                        <div key={rubric.id} className="border rounded-lg p-4 bg-gray-50">
+                        <div key={rubric.id} className="p-4 border rounded-lg bg-gray-50">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex-1">
                               <h4 className="font-medium text-gray-800">{rubric.rubrics}</h4>
@@ -321,7 +397,7 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
                   </div>
 
                   {/* Total Marks Display */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-blue-800">Total Viva Marks</span>
                       <span className={`text-2xl font-bold ${getMarksColor(vivaMarks.marks, totalMaxMarks)}`}>
@@ -329,13 +405,13 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
                       </span>
                     </div>
                     <div className="mt-2">
-                      <div className="w-full bg-blue-200 rounded-full h-2">
+                      <div className="w-full h-2 bg-blue-200 rounded-full">
                         <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                          className="h-2 transition-all duration-300 bg-blue-600 rounded-full" 
                           style={{ width: `${Math.min((vivaMarks.marks / totalMaxMarks) * 100, 100)}%` }}
                         />
                       </div>
-                      <p className="text-xs text-blue-600 mt-1">
+                      <p className="mt-1 text-xs text-blue-600">
                         {totalMaxMarks > 0 ? ((vivaMarks.marks / totalMaxMarks) * 100).toFixed(1) : 0}% of total marks
                       </p>
                     </div>
@@ -343,8 +419,8 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
 
                   {/* Remarks */}
                   <div className="space-y-3">
-                    <Label htmlFor="remarks" className="text-base font-medium flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4" />
+                    <Label htmlFor="remarks" className="flex items-center gap-2 text-base font-medium">
+                      <MessageSquare className="w-4 h-4" />
                       Remarks (Optional)
                     </Label>
                     <Textarea
@@ -363,13 +439,13 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
         </div>
 
         {/* Action Buttons */}
-        <div className="flex-shrink-0 flex justify-end gap-3 pt-4 border-t">
+        <div className="flex justify-end flex-shrink-0 gap-3 pt-4 border-t">
           <Button 
             variant="outline" 
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
           >
-            <X className="h-4 w-4 mr-2" />
+            <X className="w-4 h-4 mr-2" />
             Cancel
           </Button>
           {rubrics.length > 0 && (
@@ -380,12 +456,12 @@ export function VivaModal({ open, onOpenChange, studentResult, onVivaMarksAdded 
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Saving...
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
+                  <Save className="w-4 h-4 mr-2" />
                   {isVivaCompleted ? 'Update Marks' : 'Save Marks'}
                 </>
               )}

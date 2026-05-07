@@ -336,8 +336,8 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Denied</h3>
+          <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+          <h3 className="mb-2 text-lg font-semibold text-gray-800">Access Denied</h3>
           <p className="text-gray-600">You don't have permission to access this page.</p>
         </div>
       </div>
@@ -348,13 +348,13 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className={`bg-gradient-to-r from-[#2E3094] to-[#4C51BF] rounded-lg p-4 sm:p-6 text-white`}>
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-3">Create Questions</h1>
-        <p className="text-white/90 text-sm sm:text-base leading-relaxed">
+        <h1 className="mb-2 text-xl font-bold sm:text-2xl md:text-3xl sm:mb-3">Create Questions</h1>
+        <p className="text-sm leading-relaxed text-white/90 sm:text-base">
           Generate exam questions based on your department's subjects and requirements.
         </p>
         {user?.department_details && (
-          <div className="mt-3 flex items-center gap-2">
-            <Building className="h-4 w-4" />
+          <div className="flex items-center gap-2 mt-3">
+            <Building className="w-4 h-4" />
             <span className="text-sm font-medium">
               Department: {user.department_details.department_shortname} - {user.department_details.department_name}
             </span>
@@ -373,9 +373,9 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
             Configure your exam parameters and select subjects
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6 pt-6">
+        <CardContent className="pt-6 space-y-6">
           {/* Basic Configuration */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <Label htmlFor="semester">Semester</Label>
               <Select
@@ -453,12 +453,12 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
             </div>
 
             {isLoadingSubjects ? (
-              <div className="text-center py-4">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+              <div className="py-4 text-center">
+                <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin" />
                 <p className="text-sm text-gray-600">Loading department subjects...</p>
               </div>
             ) : departmentSubjects.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {departmentSubjects.map((subject) => {
                   const existingSubject = selectedSubjects.find(s => s.subject === subject.subject_name);
                   const marks = existingSubject?.marks || 0;
@@ -512,9 +512,9 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
                 })}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p className="font-medium mb-2">No subjects available</p>
+              <div className="py-8 text-center text-gray-500">
+                <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p className="mb-2 font-medium">No subjects available</p>
                 <p className="text-sm">No subjects are mapped to your department</p>
               </div>
             )}
@@ -522,7 +522,7 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
 
           {/* Action Buttons */}
           {canWrite() && (
-            <div className="flex flex-col sm:flex-row gap-3 pt-4 ">
+            <div className="flex flex-col gap-3 pt-4 sm:flex-row ">
               <Button 
                 onClick={handleCreateExam}
                 disabled={selectedSubjects.length === 0 || !examConfig.semester || isLoading}
@@ -530,12 +530,12 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Generating...
                   </>
                 ) : (
                   <>
-                    <Plus className="mr-2 h-4 w-4" />
+                    <Plus className="w-4 h-4 mr-2" />
                     Generate Exam
                   </>
                 )}
@@ -548,7 +548,7 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
                     disabled={isLoading}
                     variant="outline"
                   >
-                    <RefreshCw className="mr-2 h-4 w-4" />
+                    <RefreshCw className="w-4 h-4 mr-2" />
                     Regenerate
                   </Button>
 
@@ -557,7 +557,7 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
                     disabled={isLoading || examSaved}
                     variant="outline"
                   >
-                    <Save className="mr-2 h-4 w-4" />
+                    <Save className="w-4 h-4 mr-2" />
                     {examSaved ? 'Saved' : 'Save Exam'}
                   </Button>
                 </>
@@ -595,13 +595,13 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
+                  <FileText className="w-5 h-5" />
                   <span>Generated Questions</span>
                   <Badge variant="outline">{generatedQuestions.length} questions</Badge>
                 </div>
                 {canWrite() && (
                   <Button onClick={handleRegenerateExam} variant="outline" size="sm">
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                    <RefreshCw className="w-4 h-4 mr-2" />
                     Regenerate
                   </Button>
                 )}
@@ -609,14 +609,14 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue={defaultSubject} className="w-full">
-                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:flex lg:w-auto mb-6">
+                <TabsList className="grid w-full grid-cols-1 mb-6 sm:grid-cols-2 md:grid-cols-3 lg:flex lg:w-auto">
                   {subjects.map((subject) => (
                     <TabsTrigger 
                       key={subject} 
                       value={subject}
                       className="flex items-center gap-2 px-4 py-2"
                     >
-                      <BookOpen className="h-4 w-4" />
+                      <BookOpen className="w-4 h-4" />
                       <span className="truncate">{subject}</span>
                       <Badge variant="secondary" className="ml-1 text-xs">
                         {questionsBySubject[subject].length}
@@ -643,7 +643,7 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
                     
                     <div className="space-y-4">
                       {questionsBySubject[subject].map((question, index) => (
-                        <div key={question.id} className="border rounded-lg p-4 bg-gray-50/50">
+                        <div key={question.id} className="p-4 border rounded-lg bg-gray-50/50">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-2">
                               <Badge variant="outline" className="bg-white">
@@ -664,14 +664,14 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
                                 size="sm"
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               >
-                                <Trash2 className="h-4 w-4 mr-1" />
+                                <Trash2 className="w-4 h-4 mr-1" />
                                 Block
                               </Button>
                             )}
                           </div>
                           
                           <div className="space-y-3">
-                            <div className="bg-white p-3 rounded border">
+                            <div className="p-3 bg-white border rounded">
                               <p className="font-medium text-gray-800">
                                 {question.question_text || question.questions}
                               </p>
@@ -698,7 +698,7 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
                                           {value}
                                         </span>
                                         {correctAnswers.includes(key) && (
-                                          <Badge variant="outline" className="ml-auto text-xs bg-green-100 text-green-700 border-green-300">
+                                          <Badge variant="outline" className="ml-auto text-xs text-green-700 bg-green-100 border-green-300">
                                             ✓ Correct
                                           </Badge>
                                         )}
@@ -733,7 +733,7 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
                                           {option}
                                         </span>
                                         {isCorrect && (
-                                          <Badge variant="outline" className="ml-auto text-xs bg-green-100 text-green-700 border-green-300">
+                                          <Badge variant="outline" className="ml-auto text-xs text-green-700 bg-green-100 border-green-300">
                                             ✓ Correct
                                           </Badge>
                                         )}
@@ -745,9 +745,9 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
                             )}
                             
                             {question.type === 'text' && (
-                              <div className="ml-4 p-3 bg-green-50 rounded border border-green-200">
+                              <div className="p-3 ml-4 border border-green-200 rounded bg-green-50">
                                 <div className="flex items-start gap-2">
-                                  <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 text-xs">
+                                  <Badge variant="outline" className="text-xs text-green-700 bg-green-100 border-green-300">
                                     Answer
                                   </Badge>
                                   <p className="text-sm font-medium text-green-700">
