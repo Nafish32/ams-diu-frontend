@@ -491,7 +491,7 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
       >
         <h1 className="flex items-center gap-3 mb-2 text-2xl font-bold sm:text-3xl">
           <FileText className="w-8 h-8" />
-          Accepted Students
+          Results
         </h1>
         <p className="text-sm leading-relaxed text-white/90 sm:text-base">
           Semester-wise admission result sheet with DIU export formatting for selected,

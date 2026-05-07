@@ -544,7 +544,7 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
       >
         <h1 className="flex items-center gap-3 mb-2 text-2xl font-bold sm:text-3xl">
           <FileCheck className="w-8 h-8" />
-          Examinee Result
+          Override Selection
         </h1>
         <p className="text-sm leading-relaxed text-white/90 sm:text-base">
           Review candidates for the selected semester with optional threshold filtering.
@@ -656,6 +656,8 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_auto] gap-4 items-end">
+            {/* Seat Limit input commented out per request - keep state in place */}
+            { /*
             <div className="space-y-2">
               <Label htmlFor="seat-limit">Seat Limit</Label>
               <Input
@@ -667,6 +669,7 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
                 placeholder="Enter available seats"
               />
             </div>
+            */ }
 
             <div className="space-y-2">
               <Label htmlFor="threshold">Threshold</Label>
@@ -749,7 +752,7 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
       {isBulkDownloading && (
         <Alert className="border-blue-200 bg-blue-50">
           <AlertDescription className="flex flex-wrap items-center gap-2 text-blue-900">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
             <span>Generating selected reports and building ZIP file...</span>
           </AlertDescription>
         </Alert>
@@ -760,6 +763,11 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
           <CardTitle className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-wrap items-center gap-3">
               <span>Candidate Board</span>
+              {selectedSemester ? (
+                <Badge variant="outline">{formatSemesterLabel(selectedSemester)}</Badge>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
                 <Input
                   id="top-candidate-count"
@@ -777,11 +785,6 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
                   className="w-24 h-8"
                 />
               </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {selectedSemester ? (
-                <Badge variant="outline">{formatSemesterLabel(selectedSemester)}</Badge>
-              ) : null}
               {hasWriteAccess && (
                 <Button
                   onClick={handleAccept}
@@ -946,11 +949,11 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
                             type="button"
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8"
+                            className="w-8 h-8"
                             onClick={() => handleOpenReport(result)}
                             aria-label={`View report for ${result.student_full_name}`}
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="w-4 h-4" />
                           </Button>
                         </TableCell>
                         <TableCell className="text-center">
@@ -958,7 +961,7 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
                             type="button"
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8"
+                            className="w-8 h-8"
                             onClick={() => {
                               void handleDownloadReport(result);
                             }}
@@ -967,9 +970,9 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
                             title={isDownloadingThisReport ? "Downloading" : "Download report"}
                           >
                             {isDownloadingThisReport ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
-                              <Download className="h-4 w-4" />
+                              <Download className="w-4 h-4" />
                             )}
                           </Button>
                         </TableCell>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Link } from 'react-router-dom';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -204,10 +205,19 @@ export function AllQuestions({ gradientClass }: AllQuestionsProps) {
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className={`bg-gradient-to-r from-[#4C51BF] to-[#667EEA] ${gradientClass} rounded-lg p-4 sm:p-6 text-white`}>
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-3">All Questions</h1>
-        <p className="text-white/90 text-sm sm:text-base leading-relaxed">
-          Browse and manage all exam questions across different departments and semesters.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-3">All Questions</h1>
+            <p className="text-white/90 text-sm sm:text-base leading-relaxed">
+              Browse and manage all exam questions across different departments and semesters.
+            </p>
+          </div>
+          <div className="ml-4 mt-1">
+            <Link to="/create-questions">
+              <Button className="bg-white text-indigo-700 hover:bg-gray-100">+Create Questions</Button>
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* Filters and Search */}

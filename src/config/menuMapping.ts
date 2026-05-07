@@ -15,7 +15,7 @@ export const menuToGroupMapping: Record<string, { group: string; order: number }
   'create question set': { group: 'QUESTION MANAGEMENT', order: 1 },
   'all question sets': { group: 'QUESTION MANAGEMENT', order: 2 },
   'upload questions(db)': { group: 'QUESTION MANAGEMENT', order: 3 },
-  'delete questions': { group: 'QUESTION MANAGEMENT', order: 4 },
+  'delete questions(db)': { group: 'QUESTION MANAGEMENT', order: 4 },
   'blocked questions': { group: 'QUESTION MANAGEMENT', order: 5 },
 
   // EXAM CONTROLS & MAPPING
@@ -32,7 +32,6 @@ export const menuToGroupMapping: Record<string, { group: string; order: number }
   'student assign(written)': { group: 'DEPARTMENTAL CONTROLS', order: 4 },
   'student assign(viva)': { group: 'DEPARTMENTAL CONTROLS', order: 5 },
   'override selection': { group: 'DEPARTMENTAL CONTROLS', order: 6 },
-  'results': { group: 'DEPARTMENTAL CONTROLS', order: 7 },
 
   // FACULTY CONTROLS
   'my schedule': { group: 'FACULTY CONTROLS', order: 1 },
@@ -42,12 +41,13 @@ export const menuToGroupMapping: Record<string, { group: string; order: number }
   // ADMISSION OFFICE
   'students': { group: 'ADMISSION OFFICE', order: 1 },
   'referred students from department': { group: 'ADMISSION OFFICE', order: 2 },
+  'results': { group: 'ADMISSION OFFICE', order: 3 },
 
   // USERS & ROLES
   'menu management': { group: 'USERS & ROLES', order: 1 },
   'menu access management': { group: 'USERS & ROLES', order: 2 },
   'role management': { group: 'USERS & ROLES', order: 3 },
-  'user management': { group: 'USERS & ROLES', order: 4 },
+  'users management': { group: 'USERS & ROLES', order: 4 },
 };
 
 /**

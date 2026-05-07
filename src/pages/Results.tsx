@@ -274,7 +274,7 @@ export function Results({ gradientClass }: ResultsProps) {
       <div className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF] rounded-lg p-4 sm:p-6 text-white">
         <h1 className="flex items-center gap-3 mb-2 text-xl font-bold sm:text-2xl md:text-3xl sm:mb-3">
           <FilePlus className="w-8 h-8" />
-          Exam Results
+          Viva Marks Entry
         </h1>
         <p className="text-sm leading-relaxed text-white/90 sm:text-base">
           Comprehensive analysis of student exam performance and results.

@@ -153,22 +153,30 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         {
           id: 6,
-          label: "Examinee Result",
+          label: "Override Selection",
           icon: "FileCheck",
-          link: "/examinee-result",
+          link: "/override-selection",
           component: "ExamineeResult",
           permissions: { edit: true, read: true, write: true, delete: true }
         },
         {
           id: 7,
-          label: "Accepted Students",
+          label: "Results",
           icon: "FileText",
-          link: "/accepted-students",
+          link: "/results",
           component: "AcceptedStudents",
           permissions: { edit: true, read: true, write: true, delete: true }
         },
         {
           id: 8,
+          label: "Student Acceptance Criteria",
+          icon: "Sliders",
+          link: "/student-acceptance-criteria",
+          component: "ThresholdManagement",
+          permissions: { edit: true, read: true, write: true, delete: true }
+        },
+        {
+          id: 9,
           label: "Delete Questions",
           icon: "Trash2",
           link: "/deletequestions",
