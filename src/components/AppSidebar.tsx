@@ -7,7 +7,7 @@ import { Button } from './ui/button';
 import logoImage from '../assets/logo.png';
 import toast from 'react-hot-toast';
 import { Link, useLocation } from 'react-router-dom';
-import { menuGroupsConfig } from '../config/menuGroups';
+import { menuToGroupMapping, groupOrder } from '../config/menuMapping';
 import {
   Sidebar,
   SidebarContent,
@@ -43,7 +43,7 @@ export function AppSidebar() {
       
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          {/* <SidebarGroupLabel>Navigation</SidebarGroupLabel> */}
           <SidebarGroupContent>
             <SidebarMenu>
               {isLoading ? (
@@ -55,57 +55,87 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ) : (
                 (() => {
-                  // Group definitions imported from config/menuGroups.ts
-                  const groupsConfig = menuGroupsConfig;
+                  // Normalize: lowercase and collapse spaces
+                  const normalize = (s: string) => s?.toLowerCase().replace(/\s+/g, ' ').trim();
 
-                  const normalize = (s: string) => s?.toLowerCase().replace(/[^a-z0-9]+/g, '').trim();
-
-                  // Small Levenshtein implementation for tolerant matching
-                  const levenshtein = (a: string, b: string) => {
-                    if (!a || !b) return Math.max(a?.length || 0, b?.length || 0);
-                    const m = a.length;
-                    const n = b.length;
-                    const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-                    for (let i = 0; i <= m; i++) dp[i][0] = i;
-                    for (let j = 0; j <= n; j++) dp[0][j] = j;
-                    for (let i = 1; i <= m; i++) {
-                      for (let j = 1; j <= n; j++) {
-                        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-                        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
-                      }
-                    }
-                    return dp[m][n];
+                  // Check if item is dashboard
+                  const isDashboardItem = (item: any) => {
+                    const nLabel = normalize(item?.label || '');
+                    const nLink = normalize(item?.link || '');
+                    return (
+                      nLabel === 'dashboard' ||
+                      nLabel.startsWith('dashboard') ||
+                      item?.icon === 'LayoutDashboard' ||
+                      nLink === '/dashboard' ||
+                      nLink.endsWith('dashboard')
+                    );
                   };
 
-                  // Initialize buckets
-                  const groupBuckets: Record<string, any[]> = {};
-                  Object.keys(groupsConfig).forEach((g) => (groupBuckets[g] = []));
-                  const ungrouped: any[] = [];
-
-                  // Assign items to buckets using tolerant matching
-                  menuItems.forEach((item) => {
-                    const nLabel = normalize(item.label || '');
-                    let matched = false;
-                    for (const [groupName, keywords] of Object.entries(groupsConfig)) {
-                      for (const kw of keywords) {
-                        const nKw = normalize(kw);
-                        if (!nKw) continue;
-                        // direct contains OR short edit distance
-                        if (nLabel.includes(nKw) || nKw.includes(nLabel) || levenshtein(nLabel, nKw) <= 2) {
-                          groupBuckets[groupName].push(item);
-                          matched = true;
-                          break;
-                        }
+                  // Whole-word matching: normalize both label and mapping keys, then match
+                  const getMatchingGroup = (label: string): { group: string; order: number } | null => {
+                    const nLabel = normalize(label);
+                    for (const key of Object.keys(menuToGroupMapping)) {
+                      const nKey = normalize(key);
+                      if (nLabel === nKey) {
+                        return menuToGroupMapping[key];
                       }
-                      if (matched) break;
                     }
-                    if (!matched) ungrouped.push(item);
+                    return null;
+                  };
+
+                  // Separate dashboard, grouped, and ungrouped items
+                  const dashboardItems = menuItems.filter((item) => isDashboardItem(item));
+                  const nonDashboardItems = menuItems.filter((item) => !isDashboardItem(item));
+
+                  const groupBuckets: Record<string, any[]> = {};
+                  const other: any[] = [];
+
+                  groupOrder.forEach((groupName) => (groupBuckets[groupName] = []));
+
+                  nonDashboardItems.forEach((item) => {
+                    const result = getMatchingGroup(item.label || '');
+                    if (result && groupBuckets[result.group]) {
+                      // Add order to item for sorting
+                      groupBuckets[result.group].push({ ...item, _order: result.order });
+                    } else {
+                      other.push(item);
+                    }
                   });
 
-                  // Render grouped menus in the configured order, only if non-empty
+                  // Sort items within each group by order
+                  Object.keys(groupBuckets).forEach((groupName) => {
+                    groupBuckets[groupName].sort((a, b) => (a._order || 999) - (b._order || 999));
+                  });
+
+                  // Render dashboard first, then groups, then other
                   return (
                     <>
-                      {Object.keys(groupsConfig).map((groupName) => {
+                      {/* DASHBOARD AT TOP */}
+                      {dashboardItems.map((item: any) => {
+                        const Icon = iconMap[item.icon] || iconMap['LayoutDashboard'];
+                        const isActive = location.pathname === item.link;
+                        return (
+                          <SidebarMenuItem key={item.id}>
+                            <SidebarMenuButton
+                              asChild
+                              isActive={isActive}
+                              className={
+                                isActive
+                                  ? 'bg-gradient-to-r from-[#2E3094] to-[#4C51BF] text-white hover:bg-gradient-to-r hover:from-[#2E3094] hover:to-[#4C51BF] hover:text-white [&_svg]:text-white'
+                                  : 'hover:bg-gray-100'
+                              }
+                            >
+                              <Link to={item.link} className={isActive ? 'text-white' : ''}>
+                                <Icon className={`h-4 w-4 ${isActive ? 'text-white' : ''}`} />
+                                <span className={isActive ? 'text-white' : ''}>{item.label}</span>
+                              </Link>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        );
+                      })}
+
+                      {/* GROUPS IN ORDER */}
+                      {groupOrder.map((groupName) => {
                         const items = groupBuckets[groupName] || [];
                         if (!items.length) return null;
                         return (
@@ -137,11 +167,11 @@ export function AppSidebar() {
                         );
                       })}
 
-                      {/* Render any ungrouped/unknown items at the end */}
-                      {ungrouped.length > 0 && (
+                      {/* OTHER */}
+                      {other.length > 0 && (
                         <>
                           <SidebarGroupLabel className="px-3 mt-3 text-xs tracking-wide text-gray-500 uppercase">Other</SidebarGroupLabel>
-                          {ungrouped.map((item: any) => {
+                          {other.map((item: any) => {
                             const Icon = iconMap[item.icon] || iconMap['LayoutDashboard'];
                             const isActive = location.pathname === item.link;
                             return (
