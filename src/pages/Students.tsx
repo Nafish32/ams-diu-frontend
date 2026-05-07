@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Users, Plus, Edit, Trash2, Search, Mail, User, Calendar, Loader2, RefreshCw, UserPlus, Eye } from 'lucide-react';
 import { studentsAPI } from '../services/api';
+import { buildAcademicSemesterOptions } from '../lib/semester';
 import toast from 'react-hot-toast';
 
 interface Student {
@@ -17,6 +18,7 @@ interface Student {
   full_name: string;
   email: string;
   department_shortname?: string;
+  registration_semester: string;
   ssc?: number;
   hsc?: number;
   diploma?: number;
@@ -52,10 +54,13 @@ export function Students({ gradientClass }: StudentsProps) {
     full_name: '',
     email: '',
     department_shortname: '',
+    registration_semester: '',
     ssc: '',
     hsc: '',
     diploma: ''
   });
+
+  const semesterOptions = buildAcademicSemesterOptions();
 
   // Load students on component mount
   useEffect(() => {
@@ -115,7 +120,8 @@ export function Students({ gradientClass }: StudentsProps) {
         student.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.f_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (student.department_shortname && student.department_shortname.toLowerCase().includes(searchTerm.toLowerCase()))
+        (student.department_shortname && student.department_shortname.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        student.registration_semester?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -133,14 +139,15 @@ export function Students({ gradientClass }: StudentsProps) {
   };
 
   const handleAddStudent = async () => {
-    if (!formData.username || !formData.password || !formData.f_id || !formData.full_name || !formData.email || !formData.department_shortname || !formData.ssc || !formData.hsc || !formData.diploma) {
+    if (!formData.username || !formData.password || !formData.f_id || !formData.full_name || !formData.email || !formData.department_shortname || !formData.registration_semester || !formData.ssc || !formData.hsc || !formData.diploma) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const newStudent = await studentsAPI.createStudent(formData);
+      const response = await studentsAPI.createStudent(formData);
+      const newStudent = response?.data || response;
       setStudents(prev => Array.isArray(prev) ? [...prev, newStudent] : [newStudent]);
       setTotalCount(prev => prev + 1);
       toast.success('Student added successfully!');
@@ -153,6 +160,7 @@ export function Students({ gradientClass }: StudentsProps) {
         full_name: '',
         email: '',
         department_shortname: '',
+        registration_semester: '',
         ssc: '',
         hsc: '',
         diploma: ''
@@ -167,7 +175,7 @@ export function Students({ gradientClass }: StudentsProps) {
   };
 
   const handleEditStudent = async () => {
-    if (!editingStudent || !formData.username || !formData.f_id || !formData.full_name || !formData.email) {
+    if (!editingStudent || !formData.username || !formData.f_id || !formData.full_name || !formData.email || !formData.department_shortname || !formData.registration_semester) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -179,7 +187,8 @@ export function Students({ gradientClass }: StudentsProps) {
         ? formData 
         : { ...formData, password: undefined };
         
-      const updatedStudent = await studentsAPI.updateStudent(editingStudent.id, updateData);
+      const response = await studentsAPI.updateStudent(editingStudent.id, updateData);
+      const updatedStudent = response?.data || response;
       
       setStudents(prev => 
         Array.isArray(prev) ? prev.map(s => s.id === editingStudent.id ? { ...s, ...updatedStudent } : s) : []
@@ -194,6 +203,7 @@ export function Students({ gradientClass }: StudentsProps) {
         full_name: '',
         email: '',
         department_shortname: '',
+        registration_semester: '',
         ssc: '',
         hsc: '',
         diploma: ''
@@ -232,6 +242,7 @@ export function Students({ gradientClass }: StudentsProps) {
       full_name: student.full_name || '',
       email: student.email || '',
       department_shortname: student.department_shortname || '',
+      registration_semester: student.registration_semester || '',
       ssc: student.ssc ? student.ssc.toString() : '',
       hsc: student.hsc ? student.hsc.toString() : '',
       diploma: student.diploma ? student.diploma.toString() : ''
@@ -284,7 +295,7 @@ export function Students({ gradientClass }: StudentsProps) {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
-                    placeholder="Search by name, username, ID, or email..."
+                    placeholder="Search by name, username, ID, email, or semester..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -371,6 +382,24 @@ export function Students({ gradientClass }: StudentsProps) {
                           placeholder="CSE"
                         />
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="registration_semester">Registration Semester *</Label>
+                      <Select
+                        value={formData.registration_semester}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, registration_semester: value }))}
+                      >
+                        <SelectTrigger id="registration_semester">
+                          <SelectValue placeholder="Select registration semester" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {semesterOptions.map((semester) => (
+                            <SelectItem key={semester} value={semester}>
+                              {semester}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="password">Password *</Label>
@@ -516,6 +545,9 @@ export function Students({ gradientClass }: StudentsProps) {
                     Department
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Registered Semester
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Academic Scores
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -547,6 +579,11 @@ export function Students({ gradientClass }: StudentsProps) {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Badge variant="outline" className="text-xs">
                         {student.department_shortname || 'N/A'}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge variant="secondary" className="text-xs">
+                        {student.registration_semester || 'N/A'}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -661,6 +698,24 @@ export function Students({ gradientClass }: StudentsProps) {
               </div>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="edit_registration_semester">Registration Semester *</Label>
+              <Select
+                value={formData.registration_semester}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, registration_semester: value }))}
+              >
+                <SelectTrigger id="edit_registration_semester">
+                  <SelectValue placeholder="Select registration semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  {semesterOptions.map((semester) => (
+                    <SelectItem key={semester} value={semester}>
+                      {semester}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="edit_password">New Password (optional)</Label>
               <Input
                 id="edit_password"
@@ -769,6 +824,10 @@ export function Students({ gradientClass }: StudentsProps) {
                   <div className="space-y-1">
                     <Label className="text-sm font-medium text-gray-600">Department</Label>
                     <Badge variant="outline">{viewingStudent.department_shortname || 'Not Specified'}</Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-sm font-medium text-gray-600">Registration Semester</Label>
+                    <Badge variant="secondary">{viewingStudent.registration_semester || 'Not Specified'}</Badge>
                   </div>
                 </div>
               </div>

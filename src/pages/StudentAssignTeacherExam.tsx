@@ -28,6 +28,7 @@ interface StudentAssignment {
   student_username: string;
   student_full_name: string;
   student_f_id: string;
+  student_registration_semester: string;
   teacher_username: string;
   exam_department: string;
   exam_semester: string;
@@ -40,6 +41,7 @@ interface Student {
   full_name: string;
   email: string;
   department_shortname?: string;
+  registration_semester: string;
   ssc?: number;
   hsc?: number;
   diploma?: number;
@@ -120,6 +122,7 @@ export function StudentAssignTeacherExam({ gradientClass }: StudentAssignmentMan
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTeacher, setFilterTeacher] = useState('');
   const [filterExam, setFilterExam] = useState('');
+  const [filterRegistrationSemester, setFilterRegistrationSemester] = useState('all');
   const [filterDate, setFilterDate] = useState('');
 
   // Load data on component mount
@@ -344,16 +347,26 @@ export function StudentAssignTeacherExam({ gradientClass }: StudentAssignmentMan
       assignment.student_full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       assignment.student_username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       assignment.student_f_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      assignment.teacher_username.toLowerCase().includes(searchTerm.toLowerCase());
+      assignment.teacher_username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      assignment.student_registration_semester?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesTeacher = !filterTeacher || filterTeacher === 'all' || assignment.teacher.toString() === filterTeacher;
     const matchesExam = !filterExam || assignment.exam.toString() === filterExam;
+    const matchesRegistrationSemester =
+      filterRegistrationSemester === 'all' ||
+      assignment.student_registration_semester === filterRegistrationSemester;
     
     const matchesDate = !filterDate || 
       (filterDate === 'today' && isToday(assignment.created_at));
 
-    return matchesSearch && matchesTeacher && matchesExam && matchesDate;
+    return matchesSearch && matchesTeacher && matchesExam && matchesRegistrationSemester && matchesDate;
   });
+
+  const registrationSemesterOptions = [...new Set(
+    assignments
+      .map((assignment) => assignment.student_registration_semester)
+      .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b));
 
 
 
@@ -454,7 +467,7 @@ export function StudentAssignTeacherExam({ gradientClass }: StudentAssignmentMan
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
-                    placeholder="Search students, teachers, or student ID..."
+                    placeholder="Search students, teachers, student ID, or semester..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -476,6 +489,20 @@ export function StudentAssignTeacherExam({ gradientClass }: StudentAssignmentMan
                 </SelectContent>
               </Select>
 
+              <Select value={filterRegistrationSemester} onValueChange={setFilterRegistrationSemester}>
+                <SelectTrigger className="w-full sm:w-56">
+                  <SelectValue placeholder="Registered semester" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Registered Semesters</SelectItem>
+                  {registrationSemesterOptions.map((semester) => (
+                    <SelectItem key={semester} value={semester}>
+                      {semester}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select value={filterDate} onValueChange={setFilterDate}>
                 <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="Filter by date" />
@@ -486,12 +513,13 @@ export function StudentAssignTeacherExam({ gradientClass }: StudentAssignmentMan
                 </SelectContent>
               </Select>
 
-              {(searchTerm || filterTeacher !== '' || filterDate !== '') && (
+              {(searchTerm || filterTeacher !== '' || filterRegistrationSemester !== 'all' || filterDate !== '') && (
                 <Button 
                   variant="outline" 
                   onClick={() => {
                     setSearchTerm('');
                     setFilterTeacher('');
+                    setFilterRegistrationSemester('all');
                     setFilterDate('');
                   }}
                   className="w-full sm:w-auto"
@@ -569,7 +597,7 @@ export function StudentAssignTeacherExam({ gradientClass }: StudentAssignmentMan
                   <TableHead>Student ID</TableHead>
                   <TableHead>Teacher</TableHead>
                   <TableHead>Department</TableHead>
-                  <TableHead>Semester</TableHead>
+                  <TableHead>Registered Semester</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -614,7 +642,7 @@ export function StudentAssignTeacherExam({ gradientClass }: StudentAssignmentMan
                         <Badge variant="secondary">{assignment.exam_department}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{assignment.exam_semester}</Badge>
+                        <Badge variant="outline">{assignment.student_registration_semester || 'N/A'}</Badge>
                       </TableCell>
                       <TableCell>
                         <p className="text-sm text-gray-500">

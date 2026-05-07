@@ -15,6 +15,7 @@ interface Student {
   full_name: string;
   email: string;
   department_shortname?: string;
+  registration_semester: string;
   ssc?: number;
   hsc?: number;
   diploma?: number;
@@ -94,6 +95,7 @@ export function StudentAssignmentDialog({
   filterDate
 }: StudentAssignmentDialogProps) {
   const [studentSearchTerm, setStudentSearchTerm] = useState('');
+  const [semesterFilter, setSemesterFilter] = useState('all');
 
   // Helper function to check if date is today
   const isToday = (dateString: string) => {
@@ -107,12 +109,22 @@ export function StudentAssignmentDialog({
     const matchesSearch = !studentSearchTerm || 
       student.full_name.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
       student.username.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
-      student.f_id.toLowerCase().includes(studentSearchTerm.toLowerCase());
+      student.f_id.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+      student.registration_semester.toLowerCase().includes(studentSearchTerm.toLowerCase());
+
+    const matchesSemester =
+      semesterFilter === 'all' || student.registration_semester === semesterFilter;
     
     const matchesDate = !filterDate || (filterDate === 'today' && isToday(student.created_at));
     
-    return matchesSearch && matchesDate;
+    return matchesSearch && matchesSemester && matchesDate;
   });
+
+  const availableSemesters = [...new Set(
+    availableStudents
+      .map((student) => student.registration_semester)
+      .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b));
 
   // Filter schedules based on date filter
   const filteredSchedules = schedules.filter(schedule => {
@@ -121,6 +133,7 @@ export function StudentAssignmentDialog({
 
   const handleClose = () => {
     setStudentSearchTerm('');
+    setSemesterFilter('all');
     onSelectedStudentsChange([]);
     onOpenChange(false);
   };
@@ -176,11 +189,27 @@ export function StudentAssignmentDialog({
                       className="pl-11 h-12 text-base"
                     />
                   </div>
-                  {studentSearchTerm && (
+                  <Select value={semesterFilter} onValueChange={setSemesterFilter}>
+                    <SelectTrigger className="w-[220px] h-12">
+                      <SelectValue placeholder="Filter by semester" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Semesters</SelectItem>
+                      {availableSemesters.map((semester) => (
+                        <SelectItem key={semester} value={semester}>
+                          {semester}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {(studentSearchTerm || semesterFilter !== 'all') && (
                     <Button
                       variant="outline"
                       size="lg"
-                      onClick={() => setStudentSearchTerm('')}
+                      onClick={() => {
+                        setStudentSearchTerm('');
+                        setSemesterFilter('all');
+                      }}
                       className="px-4"
                     >
                       Clear
@@ -192,9 +221,11 @@ export function StudentAssignmentDialog({
                 <div className="flex items-center justify-between mb-4">
                   <div className="text-base text-gray-600">
                     Showing {filteredAvailableStudents.length} of {availableStudents.length} available students
-                    {studentSearchTerm && (
+                    {(studentSearchTerm || semesterFilter !== 'all') && (
                       <span className="ml-2 text-blue-600 font-medium">
-                        (filtered by "{studentSearchTerm}")
+                        {studentSearchTerm ? `Search: "${studentSearchTerm}"` : null}
+                        {studentSearchTerm && semesterFilter !== 'all' ? ' | ' : null}
+                        {semesterFilter !== 'all' ? `Semester: ${semesterFilter}` : null}
                       </span>
                     )}
                   </div>
@@ -241,6 +272,7 @@ export function StudentAssignmentDialog({
                           <TableHead className="font-semibold">Student ID</TableHead>
                           <TableHead className="font-semibold">Username</TableHead>
                           <TableHead className="font-semibold">Department</TableHead>
+                          <TableHead className="font-semibold">Registered Semester</TableHead>
                           <TableHead className="font-semibold text-center">Created</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -262,6 +294,7 @@ export function StudentAssignmentDialog({
                             <TableCell className="font-mono text-sm">{student.f_id}</TableCell>
                             <TableCell className="text-gray-600">@{student.username}</TableCell>
                             <TableCell className="text-gray-600">{student.department_shortname || 'N/A'}</TableCell>
+                            <TableCell className="text-gray-600">{student.registration_semester || 'N/A'}</TableCell>
                             <TableCell className="text-center text-xs text-gray-500">
                               {new Date(student.created_at).toLocaleDateString()}
                             </TableCell>

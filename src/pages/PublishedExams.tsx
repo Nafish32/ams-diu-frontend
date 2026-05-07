@@ -26,8 +26,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
+import { formatSemesterLabel, sortSemesterValues } from '../lib/semester';
 import toast from 'react-hot-toast';
-import { examAPI } from '../services/api';
+import { admissionResultsAPI, examAPI } from '../services/api';
 
 interface PublishedExamsProps {
   gradientClass: string;
@@ -112,6 +113,7 @@ export function PublishedExams({ gradientClass }: PublishedExamsProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [preparingExamId, setPreparingExamId] = useState<number | null>(null);
   
   // Dialog states
   const [showResultDialog, setShowResultDialog] = useState(false);
@@ -263,6 +265,19 @@ export function PublishedExams({ gradientClass }: PublishedExamsProps) {
     setShowResultDialog(true);
   };
 
+  const handlePrepareAdmissionBoard = async (examId: number) => {
+    try {
+      setPreparingExamId(examId);
+      const response = await admissionResultsAPI.calculateResults({ exam_id: examId });
+      toast.success(response?.message || `Admission board prepared for exam ${examId}`);
+    } catch (error: any) {
+      console.error('Error preparing admission board:', error);
+      toast.error(error?.message || 'Failed to prepare admission board');
+    } finally {
+      setPreparingExamId(null);
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Not published';
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -293,7 +308,7 @@ export function PublishedExams({ gradientClass }: PublishedExamsProps) {
   };
 
   // Get unique values for filters
-  const uniqueSemesters = Array.from(new Set(publishedExams.map(e => e.exam_details.semester)));
+  const uniqueSemesters = sortSemesterValues(publishedExams.map((exam) => exam.exam_details.semester));
   const uniqueDepartments = Array.from(new Set(publishedExams.map(e => e.exam_details.department)));
 
   // Calculate statistics
@@ -433,7 +448,7 @@ export function PublishedExams({ gradientClass }: PublishedExamsProps) {
                 <SelectContent>
                   <SelectItem value="all">All Semesters</SelectItem>
                   {uniqueSemesters.map(semester => (
-                    <SelectItem key={semester} value={semester}>{semester}</SelectItem>
+                    <SelectItem key={semester} value={semester}>{formatSemesterLabel(semester)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -531,6 +546,20 @@ export function PublishedExams({ gradientClass }: PublishedExamsProps) {
                       )}
                       {exam.is_published ? 'Unpublish' : 'Publish'}
                     </Button>
+                    <Button
+                      onClick={() => handlePrepareAdmissionBoard(exam.exam)}
+                      disabled={preparingExamId === exam.exam}
+                      variant="outline"
+                      size="sm"
+                      className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                    >
+                      {preparingExamId === exam.exam ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                      )}
+                      Prepare Board
+                    </Button>
                   </div>
                 </div>
 
@@ -542,7 +571,7 @@ export function PublishedExams({ gradientClass }: PublishedExamsProps) {
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">{exam.exam_details.semester}</span>
+                    <span className="text-sm text-gray-600">{formatSemesterLabel(exam.exam_details.semester)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <BookOpen className="h-4 w-4 text-gray-500" />
@@ -605,7 +634,7 @@ export function PublishedExams({ gradientClass }: PublishedExamsProps) {
                       <h3 className="font-semibold text-lg mb-2">{selectedResult.student_name}</h3>
                       <div className="space-y-1 text-sm">
                         <p><strong>Department:</strong> {selectedResult.exam_details.department}</p>
-                        <p><strong>Semester:</strong> {selectedResult.exam_details.semester}</p>
+                        <p><strong>Semester:</strong> {formatSemesterLabel(selectedResult.exam_details.semester)}</p>
                         <p><strong>Total Questions:</strong> {selectedResult.exam_details.total_questions}</p>
                       </div>
                     </div>

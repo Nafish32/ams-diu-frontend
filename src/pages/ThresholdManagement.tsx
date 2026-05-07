@@ -6,8 +6,9 @@ import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Sliders, Plus, Trash2, RefreshCw, AlertCircle, Building, FileText } from 'lucide-react';
-import { thresholdAPI, departmentAPI, examAPI } from '../services/api';
+import { Sliders, Plus, Trash2, RefreshCw, AlertCircle, Building, Edit } from 'lucide-react';
+import { thresholdAPI, departmentAPI, admissionResultsAPI } from '../services/api';
+import { buildAcademicSemesterOptions, formatSemesterLabel } from '../lib/semester';
 import toast from 'react-hot-toast';
 
 interface Department {
@@ -16,22 +17,14 @@ interface Department {
   department_shortname: string;
 }
 
-interface Exam {
-  id: number;
-  department: string;
-  semester: string;
-  total_marks: number;
-  duration_minutes: number;
-}
-
 interface ThresholdMapping {
   id: number;
-  exam_id: number;
-  exam_name: string;
   department_id: number;
   department_name: string;
   department_shortname: string;
+  semester: string;
   min_threshold_mark: number;
+  seat_limit: number;
   created_at: string;
   updated_at: string;
 }
@@ -39,36 +32,39 @@ interface ThresholdMapping {
 interface ThresholdFormData {
   department_id: number;
   threshold: number;
+  seat_limit: number;
 }
 
 const ThresholdManagement: React.FC = () => {
   const [thresholds, setThresholds] = useState<ThresholdMapping[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [exams, setExams] = useState<Exam[]>([]);
+  const [semesterOptions, setSemesterOptions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
+  const [selectedSemester, setSelectedSemester] = useState<string | null>(null);
   const [mappings, setMappings] = useState<ThresholdFormData[]>([]);
-  const [filterExamId, setFilterExamId] = useState<string>('all');
+  const [filterSemester, setFilterSemester] = useState<string>('all');
+  const [editingThresholdId, setEditingThresholdId] = useState<number | null>(null);
+  const [editingThreshold, setEditingThreshold] = useState<ThresholdMapping | null>(null);
 
   useEffect(() => {
     loadInitialData();
   }, []);
 
   useEffect(() => {
-    if (filterExamId && filterExamId !== 'all') {
-      loadThresholds(parseInt(filterExamId));
+    if (filterSemester && filterSemester !== 'all') {
+      loadThresholds(filterSemester);
     } else {
       loadThresholds();
     }
-  }, [filterExamId]);
+  }, [filterSemester]);
 
   const loadInitialData = async () => {
     setIsLoading(true);
     try {
       await Promise.all([
         loadDepartments(),
-        loadExams(),
+        loadSemesterOptions(),
         loadThresholds()
       ]);
     } catch (error) {
@@ -90,20 +86,32 @@ const ThresholdManagement: React.FC = () => {
     }
   };
 
-  const loadExams = async () => {
+  const loadSemesterOptions = async () => {
     try {
-      const response = await examAPI.getAllExams();
-      const examData = response.results || response;
-      setExams(examData);
+      const response = await admissionResultsAPI.getSemesterOptions();
+      const apiSemesters = Array.isArray(response?.semesters) ? response.semesters : [];
+      const generatedSemesters = buildSemesterOptions();
+
+      const mergedSemesters = Array.from(
+        new Set([...generatedSemesters, ...apiSemesters].map((semester) => formatSemesterLabel(semester))).values(),
+      );
+
+      setSemesterOptions(mergedSemesters);
     } catch (error: any) {
-      console.error('Error loading exams:', error);
-      toast.error('Failed to load exams');
+      console.error('Error loading semester options:', error);
+      // If API fails, generate client-side semesters (±1 year from current)
+      const clientSemesters = buildSemesterOptions();
+      setSemesterOptions(clientSemesters);
     }
   };
 
-  const loadThresholds = async (examId?: number) => {
+  const buildSemesterOptions = () => {
+    return buildAcademicSemesterOptions({ previousYears: 1, nextYears: 1 });
+  };
+
+  const loadThresholds = async (semester?: string) => {
     try {
-      const params = examId ? { exam_id: examId } : {};
+      const params = semester ? { semester } : {};
       const response = await thresholdAPI.getThresholdMappings(params);
       if (response.success) {
         setThresholds(response.thresholds || []);
@@ -115,13 +123,28 @@ const ThresholdManagement: React.FC = () => {
   };
 
   const handleOpenDialog = () => {
-    setSelectedExamId(null);
-    setMappings([{ department_id: 0, threshold: 0 }]);
+    setSelectedSemester(null);
+    setMappings([{ department_id: 0, threshold: 0, seat_limit: 5 }]);
+    setEditingThresholdId(null);
+    setEditingThreshold(null);
+    setIsDialogOpen(true);
+  };
+
+  const handleEditThreshold = (threshold: ThresholdMapping) => {
+    setEditingThreshold(threshold);
+    setEditingThresholdId(threshold.id);
+    setSelectedSemester(threshold.semester);
+    setMappings([{
+      department_id: threshold.department_id,
+      threshold: threshold.min_threshold_mark,
+      seat_limit: threshold.seat_limit
+    }]);
     setIsDialogOpen(true);
   };
 
   const handleAddMapping = () => {
-    setMappings([...mappings, { department_id: 0, threshold: 0 }]);
+    // Disabled: keep the dialog focused on one department threshold per semester.
+    setMappings([...mappings, { department_id: 0, threshold: 0, seat_limit: 5 }]);
   };
 
   const handleRemoveMapping = (index: number) => {
@@ -135,8 +158,8 @@ const ThresholdManagement: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    if (!selectedExamId) {
-      toast.error('Please select an exam');
+    if (!selectedSemester) {
+      toast.error('Please select a semester');
       return;
     }
 
@@ -156,8 +179,12 @@ const ThresholdManagement: React.FC = () => {
 
     try {
       const data = {
-        exam_id: selectedExamId,
-        mappings: validMappings
+        semester: selectedSemester,
+        mappings: validMappings.map(m => ({
+          department_id: m.department_id,
+          threshold: m.threshold,
+          seat_limit: m.seat_limit
+        }))
       };
 
       const response = await thresholdAPI.setThresholdMappings(data);
@@ -189,26 +216,24 @@ const ThresholdManagement: React.FC = () => {
     }
   };
 
-  const getExamName = (examId: number): string => {
-    const exam = exams.find(e => e.id === examId);
-    return exam ? `${exam.department} - ${exam.semester}` : 'Unknown Exam';
-  };
-
-  const getSelectedExamTotalMarks = (): number => {
-    if (!selectedExamId) return 0;
-    const exam = exams.find(e => e.id === selectedExamId);
-    return exam?.total_marks || 0;
-  };
+  // Group thresholds by semester
+  const groupedThresholds = thresholds.reduce((acc, threshold) => {
+    if (!acc[threshold.semester]) {
+      acc[threshold.semester] = [];
+    }
+    acc[threshold.semester].push(threshold);
+    return acc;
+  }, {} as Record<string, ThresholdMapping[]>);
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Sliders className="h-8 w-8 text-blue-600" />
+          <Sliders className="w-8 h-8 text-blue-600" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Threshold Management</h1>
-            <p className="text-gray-600">Manage department admission threshold marks</p>
+            <h1 className="text-2xl font-bold text-gray-800">Student Acceptance Criteria</h1>
+            <p className="text-gray-600">Manage semester-wide admission thresholds and seat limits</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -217,7 +242,7 @@ const ThresholdManagement: React.FC = () => {
             Refresh
           </Button>
           <Button onClick={handleOpenDialog} className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="w-4 h-4 mr-2" />
             Set Thresholds
           </Button>
         </div>
@@ -227,28 +252,28 @@ const ThresholdManagement: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Filter Thresholds</CardTitle>
-          <CardDescription>Filter thresholds by exam</CardDescription>
+          <CardDescription>Filter thresholds by semester</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 items-end">
+          <div className="flex items-end gap-4">
             <div className="flex-1">
-              <Label htmlFor="filter-exam">Select Exam</Label>
-              <Select value={filterExamId} onValueChange={setFilterExamId}>
-                <SelectTrigger id="filter-exam">
-                  <SelectValue placeholder="All Exams" />
+              <Label htmlFor="filter-semester">Select Semester</Label>
+              <Select value={filterSemester} onValueChange={setFilterSemester}>
+                <SelectTrigger id="filter-semester">
+                  <SelectValue placeholder="All Semesters" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Exams</SelectItem>
-                  {exams.map((exam) => (
-                    <SelectItem key={exam.id} value={exam.id.toString()}>
-                      {exam.department} - {exam.semester} (Total: {exam.total_marks} marks)
+                  <SelectItem value="all">All Semesters</SelectItem>
+                  {semesterOptions.map((semester) => (
+                    <SelectItem key={semester} value={semester}>
+                      {formatSemesterLabel(semester)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            {filterExamId && filterExamId !== 'all' && (
-              <Button variant="outline" onClick={() => setFilterExamId('all')}>
+            {filterSemester && filterSemester !== 'all' && (
+              <Button variant="outline" onClick={() => setFilterSemester('all')}>
                 Clear Filter
               </Button>
             )}
@@ -264,62 +289,75 @@ const ThresholdManagement: React.FC = () => {
             <Badge variant="outline">{thresholds.length} thresholds</Badge>
           </CardTitle>
           <CardDescription>
-            List of all department threshold mappings
+            List of all department admission thresholds with seat limits
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="w-6 h-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+              <div className="w-6 h-6 border-2 border-gray-300 rounded-full border-t-blue-500 animate-spin"></div>
               <span className="ml-2">Loading thresholds...</span>
             </div>
           ) : thresholds.length > 0 ? (
-            <div className="space-y-4">
-              {/* Group by exam */}
-              {Object.entries(
-                thresholds.reduce((acc, threshold) => {
-                  const examKey = threshold.exam_name || getExamName(threshold.exam_id);
-                  if (!acc[examKey]) acc[examKey] = [];
-                  acc[examKey].push(threshold);
-                  return acc;
-                }, {} as Record<string, ThresholdMapping[]>)
-              ).map(([examName, examThresholds]) => (
-                <div key={examName} className="border rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <FileText className="h-5 w-5 text-blue-600" />
-                    <h3 className="font-semibold text-gray-900">{examName}</h3>
-                    <Badge variant="secondary">{examThresholds.length} departments</Badge>
+            <div className="space-y-6">
+              {/* Group by semester */}
+              {Object.entries(groupedThresholds).map(([semester, semesterThresholds]) => (
+                <div key={semester} className="p-4 border rounded-lg bg-gray-50">
+                  <div className="flex items-center gap-2 mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">{semester}</h3>
+                    <Badge variant="secondary">{semesterThresholds.length} departments</Badge>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {examThresholds.map((threshold) => (
-                      <Card key={threshold.id} className="p-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-2">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                              <Building className="h-4 w-4 text-blue-600" />
+                  
+                  {/* Individual threshold rows */}
+                  <div className="space-y-3">
+                    {semesterThresholds.map((threshold) => (
+                      <Card key={threshold.id} className="p-4 bg-white border-l-4 border-l-blue-500">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                          {/* Threshold Content */}
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="text-blue-700 border-blue-200 bg-blue-50">
+                                <Building className="w-3 h-3 mr-1" />
+                                {threshold.department_shortname}
+                              </Badge>
+                              <Badge variant="outline" className="text-orange-700 border-orange-200 bg-orange-50">
+                                Min Marks: {threshold.min_threshold_mark}
+                              </Badge>
+                              <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">
+                                Seats: {threshold.seat_limit}
+                              </Badge>
                             </div>
                             <div>
-                              <h4 className="font-medium text-gray-900 text-sm">
+                              <h4 className="block w-full overflow-hidden font-medium text-gray-900 text-ellipsis whitespace-nowrap" title={threshold.department_name}>
                                 {threshold.department_name}
                               </h4>
-                              <p className="text-xs text-blue-600 font-medium">
-                                {threshold.department_shortname}
+                              <p className="text-xs text-gray-500">
+                                Created: {new Date(threshold.created_at).toLocaleDateString()}
                               </p>
-                              <div className="mt-1 flex items-center gap-1">
-                                <Badge variant="outline" className="text-xs">
-                                  Min: {threshold.min_threshold_mark} marks
-                                </Badge>
-                              </div>
                             </div>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteThreshold(threshold.id, threshold.department_name)}
-                            className="text-red-600 hover:text-red-700 h-7 w-7 p-0"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          
+                          {/* Actions */}
+                          <div className="flex gap-2 lg:justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditThreshold(threshold)}
+                              className="flex-1 lg:flex-none"
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeleteThreshold(threshold.id, threshold.department_name)}
+                              className="flex-1 text-red-600 lg:flex-none hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </Button>
+                          </div>
                         </div>
                       </Card>
                     ))}
@@ -328,12 +366,12 @@ const ThresholdManagement: React.FC = () => {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              <Sliders className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <div className="py-8 text-center text-gray-500">
+              <Sliders className="w-12 h-12 mx-auto mb-4 text-gray-300" />
               <p className="text-lg font-medium">No thresholds found</p>
               <p className="text-sm">Set department thresholds to get started</p>
               <Button onClick={handleOpenDialog} className="mt-4 bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="w-4 h-4 mr-2" />
                 Set Thresholds
               </Button>
             </div>
@@ -341,106 +379,125 @@ const ThresholdManagement: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Create Dialog */}
+      {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Set Department Thresholds</DialogTitle>
+            <DialogTitle>
+              {editingThresholdId ? 'Edit Department Threshold' : 'Set Department Thresholds'}
+            </DialogTitle>
             <DialogDescription>
-              Set minimum marks required for admission to each department
+              {editingThresholdId 
+                ? 'Update the threshold and seat limit for this department'
+                : 'Set minimum marks and seat limits for each department in a semester'}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            {/* Exam Selection */}
+            {/* Semester Selection */}
             <div>
-              <Label htmlFor="exam">Select Exam *</Label>
+              <Label htmlFor="semester">Select Semester *</Label>
               <Select 
-                value={selectedExamId?.toString()} 
-                onValueChange={(value) => setSelectedExamId(parseInt(value))}
+                value={selectedSemester || ''} 
+                onValueChange={setSelectedSemester}
               >
-                <SelectTrigger id="exam">
-                  <SelectValue placeholder="Select an exam" />
+                <SelectTrigger id="semester">
+                  <SelectValue placeholder="Select a semester" />
                 </SelectTrigger>
                 <SelectContent>
-                  {exams.map((exam) => (
-                    <SelectItem key={exam.id} value={exam.id.toString()}>
-                      {exam.department} - {exam.semester} (Total: {exam.total_marks} marks)
+                  {semesterOptions.map((semester) => (
+                    <SelectItem key={semester} value={semester}>
+                      {formatSemesterLabel(semester)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {selectedExamId && (
-                <div className="mt-2 p-2 bg-blue-50 rounded-md flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm text-blue-700">
-                    Maximum threshold: {getSelectedExamTotalMarks()} marks
-                  </span>
-                </div>
-              )}
             </div>
 
-            {/* Mappings */}
+            {/* Department Mappings */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Department Thresholds</Label>
+                {/* Add Department disabled on purpose: one threshold row per semester dialog */}
+                {/*
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   onClick={handleAddMapping}
-                  disabled={!selectedExamId}
+                  disabled={!selectedSemester}
                 >
-                  <Plus className="h-3 w-3 mr-1" />
+                  <Plus className="w-3 h-3 mr-1" />
                   Add Department
                 </Button>
+                */}
               </div>
 
               {mappings.map((mapping, index) => (
-                <Card key={index} className="p-3">
-                  <div className="flex gap-3 items-end">
-                    <div className="flex-1">
-                      <Label htmlFor={`dept-${index}`} className="text-xs">Department</Label>
-                      <Select
-                        value={mapping.department_id > 0 ? mapping.department_id.toString() : undefined}
-                        onValueChange={(value) => handleMappingChange(index, 'department_id', parseInt(value))}
-                      >
-                        <SelectTrigger id={`dept-${index}`} className="h-9">
-                          <SelectValue placeholder="Select department" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {departments.map((dept) => (
-                            <SelectItem key={dept.id} value={dept.id.toString()}>
-                              {dept.department_shortname} - {dept.department_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                <Card key={index} className="p-4 border-l-4 border-l-blue-400">
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_160px_160px] lg:items-end">
+                      <div className="min-w-0">
+                        <Label htmlFor={`dept-${index}`} className="text-xs">Department *</Label>
+                        <Select
+                          value={mapping.department_id > 0 ? mapping.department_id.toString() : ''}
+                          onValueChange={(value) => handleMappingChange(index, 'department_id', parseInt(value))}
+                        >
+                          <SelectTrigger id={`dept-${index}`} className="w-full min-w-0 h-9">
+                            <SelectValue placeholder="Select department" className="truncate" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {departments.map((dept) => (
+                              <SelectItem key={dept.id} value={dept.id.toString()}>
+                                <span className="block max-w-[20rem] truncate" title={`${dept.department_shortname} - ${dept.department_name}`}>
+                                  {dept.department_shortname} - {dept.department_name}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor={`threshold-${index}`} className="text-xs">Min. Marks *</Label>
+                        <Input
+                          id={`threshold-${index}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={mapping.threshold || ''}
+                          onChange={(e) => handleMappingChange(index, 'threshold', parseFloat(e.target.value))}
+                          placeholder="60.0"
+                          className="h-9"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`seats-${index}`} className="text-xs">Seat Limit *</Label>
+                        <Input
+                          id={`seats-${index}`}
+                          type="number"
+                          min="1"
+                          value={mapping.seat_limit || ''}
+                          onChange={(e) => handleMappingChange(index, 'seat_limit', parseInt(e.target.value))}
+                          placeholder="5"
+                          className="h-9"
+                        />
+                      </div>
                     </div>
-                    <div className="w-32">
-                      <Label htmlFor={`threshold-${index}`} className="text-xs">Min. Marks</Label>
-                      <Input
-                        id={`threshold-${index}`}
-                        type="number"
-                        min="0"
-                        max={getSelectedExamTotalMarks()}
-                        step="0.01"
-                        value={mapping.threshold || ''}
-                        onChange={(e) => handleMappingChange(index, 'threshold', parseFloat(e.target.value))}
-                        placeholder="0.0"
-                        className="h-9"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleRemoveMapping(index)}
-                      disabled={mappings.length === 1}
-                      className="text-red-600 hover:text-red-700 h-9 w-9 p-0"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    
+                    {mappings.length > 1 && (
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleRemoveMapping(index)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Remove
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -454,7 +511,7 @@ const ThresholdManagement: React.FC = () => {
               <Button
                 onClick={handleSubmit}
                 className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF]"
-                disabled={!selectedExamId}
+                disabled={!selectedSemester}
               >
                 Save Thresholds
               </Button>

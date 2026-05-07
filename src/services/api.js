@@ -12,6 +12,36 @@ const api = axios.create({
   timeout: 30000, // 30 seconds timeout
 });
 
+const parseBlobJsonError = async (error, fallbackMessage) => {
+  const response = error?.response;
+  const data = response?.data;
+  const contentType = response?.headers?.['content-type'] || '';
+
+  if (!(data instanceof Blob) || !contentType.includes('application/json')) {
+    return null;
+  }
+
+  try {
+    const text = await data.text();
+    const parsed = JSON.parse(text);
+    const message =
+      parsed?.message ||
+      parsed?.detail ||
+      fallbackMessage ||
+      error?.message ||
+      'Request failed';
+
+    return {
+      ...parsed,
+      message,
+    };
+  } catch {
+    return {
+      message: fallbackMessage || error?.message || 'Request failed',
+    };
+  }
+};
+
 // Add a request interceptor to include the auth token
 api.interceptors.request.use(
   (config) => {
@@ -98,10 +128,22 @@ export const examAPI = {
     }
   },
 
-  // Get all results by teacher
-  getAllResultsByTeacher: async (teacherId) => {
+  // Permanently delete a blocked question
+  deleteBlockedQuestion: async (questionId) => {
     try {
-      const response = await api.get(`/api/get-all-results-by-teacher/${teacherId}/`);
+      const response = await api.delete(`/api/blocked-question/${questionId}/delete/`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get all results by teacher
+  getAllResultsByTeacher: async (teacherId, params = {}) => {
+    try {
+      const response = await api.get(`/api/get-all-results-by-teacher/${teacherId}/`, {
+        params,
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -214,6 +256,63 @@ export const examAPI = {
   getQuestionsStats: async () => {
     try {
       const response = await api.get('/api/questions-stats/');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get all question-bank items with optional filters
+  getQuestionBank: async (params = {}) => {
+    try {
+      const perPage = Math.min(params.per_page || 100, 100);
+      const firstResponse = await api.get('/api/all-scrapped-questions/', {
+        params: {
+          ...params,
+          page: 1,
+          per_page: perPage,
+        },
+      });
+      const firstData = firstResponse.data || {};
+      const allQuestions = [...(firstData.questions || [])];
+      const totalPages = firstData.pagination?.total_pages || 1;
+
+      for (let page = 2; page <= totalPages; page += 1) {
+        const nextResponse = await api.get('/api/all-scrapped-questions/', {
+          params: {
+            ...params,
+            page,
+            per_page: perPage,
+          },
+        });
+        allQuestions.push(...(nextResponse.data?.questions || []));
+      }
+
+      return {
+        ...firstData,
+        questions: allQuestions,
+      };
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Permanently delete one question-bank item
+  deleteQuestionBankItem: async (questionId) => {
+    try {
+      const response = await api.delete(`/api/question-bank/${questionId}/delete/`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Permanently delete many question-bank items
+  bulkDeleteQuestionBankItems: async (questionIds) => {
+    try {
+      const response = await api.delete('/api/question-bank/delete-bulk/', {
+        data: { question_ids: questionIds }
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;
@@ -1032,10 +1131,193 @@ export const thresholdAPI = {
 
 // Admission Results API endpoints
 export const admissionResultsAPI = {
+  // Get semester options for admission pages
+  getSemesterOptions: async (params = {}) => {
+    try {
+      const response = await api.get('/api/admission/semester-options/', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get semester admission configurations
+  getConfigurations: async (params = {}) => {
+    try {
+      const response = await api.get('/api/admission/configurations/', { params });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Create or update a semester admission configuration
+  createOrUpdateConfiguration: async (data) => {
+    try {
+      const response = await api.post('/api/admission/configurations/', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Update an existing semester admission configuration
+  updateConfiguration: async (configurationId, data) => {
+    try {
+      const response = await api.patch(`/api/admission/configurations/${configurationId}/`, data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Calculate or refresh semester admission results for one exam
+  calculateResults: async (data) => {
+    try {
+      const response = await api.post('/api/admission/calculate-results/', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
   // Get admission results with optional filtering
   getResults: async (params = {}) => {
     try {
-      const response = await api.get('/api/admission/results/', { params });
+      const mergedParams = {
+        page_size: 100,
+        ...params,
+      };
+      const response = await api.get('/api/admission/results/', { params: mergedParams });
+      const responseData = response.data;
+
+      if (!responseData?.next) {
+        return responseData;
+      }
+
+      let nextUrl = responseData.next;
+      const allResults = [...(responseData.results || [])];
+
+      while (nextUrl) {
+        const nextResponse = await api.get(nextUrl);
+        allResults.push(...(nextResponse.data?.results || []));
+        nextUrl = nextResponse.data?.next;
+      }
+
+      return {
+        ...responseData,
+        results: allResults,
+      };
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Get detailed student admission report
+  getStudentDetailReport: async (examId, studentId) => {
+    try {
+      const response = await api.get(`/api/admission/reports/student/${examId}/${studentId}/`);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Download detailed student admission report PDF
+  downloadStudentDetailReportPdf: async (examId, studentId) => {
+    try {
+      const response = await api.get(
+        `/api/admission/reports/student/${examId}/${studentId}/pdf/`,
+        {
+          responseType: 'blob',
+          headers: {
+            Accept: 'application/pdf',
+          },
+        },
+      );
+
+      const disposition = response.headers?.['content-disposition'] || '';
+      const utf8FilenameMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const plainFilenameMatch = disposition.match(/filename=\"?([^\";]+)\"?/i);
+      const encodedFilename = utf8FilenameMatch?.[1] || plainFilenameMatch?.[1] || '';
+
+      let filename = `student-admission-report-${examId}-${studentId}.pdf`;
+      if (encodedFilename) {
+        try {
+          filename = decodeURIComponent(encodedFilename.trim());
+        } catch {
+          filename = encodedFilename.trim();
+        }
+      }
+
+      return {
+        blob: response.data,
+        filename,
+      };
+    } catch (error) {
+      const parsedBlobError = await parseBlobJsonError(
+        error,
+        'Failed to download student report',
+      );
+
+      if (parsedBlobError) {
+        throw parsedBlobError;
+      }
+
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Download multiple student admission reports as a single ZIP file
+  downloadStudentDetailReportsZip: async (reports) => {
+    try {
+      const response = await api.post(
+        '/api/admission/reports/batch/pdf/',
+        { reports },
+        {
+          responseType: 'blob',
+          headers: {
+            Accept: 'application/zip, application/json, */*',
+          },
+        },
+      );
+
+      const disposition = response.headers?.['content-disposition'] || '';
+      const utf8FilenameMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const plainFilenameMatch = disposition.match(/filename=\"?([^\";]+)\"?/i);
+      const encodedFilename = utf8FilenameMatch?.[1] || plainFilenameMatch?.[1] || '';
+
+      let filename = 'student-admission-reports.zip';
+      if (encodedFilename) {
+        try {
+          filename = decodeURIComponent(encodedFilename.trim());
+        } catch {
+          filename = encodedFilename.trim();
+        }
+      }
+
+      return {
+        blob: response.data,
+        filename,
+      };
+    } catch (error) {
+      const parsedBlobError = await parseBlobJsonError(
+        error,
+        'Failed to download student reports zip',
+      );
+
+      if (parsedBlobError) {
+        throw parsedBlobError;
+      }
+
+      throw error.response?.data || error.message;
+    }
+  },
+
+  // Bulk update admission result status
+  bulkUpdateStatus: async (data) => {
+    try {
+      const response = await api.post('/api/admission/results/bulk-status-update/', data);
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

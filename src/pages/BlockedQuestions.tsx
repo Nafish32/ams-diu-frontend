@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { AlertTriangle, RefreshCw, Eye, Calendar, User, MessageSquare, Search, Slash, FileText, Clock, Building2, Loader2, BookOpen, CheckCircle, Edit } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Eye, Calendar, User, MessageSquare, Search, Slash, FileText, Clock, Building2, Loader2, BookOpen, CheckCircle, Edit, Trash2 } from 'lucide-react';
 import { usePermissions } from '../hooks/usePermissions';
 import toast from 'react-hot-toast';
 import { examAPI } from '../services/api';
@@ -41,6 +41,7 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Edit form state
   const [editFormData, setEditFormData] = useState({
@@ -190,6 +191,40 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
     }
   };
 
+  const handleDeleteQuestion = async () => {
+    if (!selectedQuestion || !canWrite()) {
+      toast.error('You do not have permission to delete questions');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Are you sure you want to permanently delete this blocked question? This action cannot be undone.',
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const data = await examAPI.deleteBlockedQuestion(selectedQuestion.id);
+
+      if (data.success) {
+        toast.success('Blocked question deleted permanently');
+        setShowEditDialog(false);
+        setSelectedQuestion(null);
+        await loadBlockedQuestions();
+      } else {
+        throw new Error(data.message || 'Failed to delete blocked question');
+      }
+    } catch (error: any) {
+      console.error('Error deleting blocked question:', error);
+      toast.error(error.message || 'Failed to delete blocked question');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Get unique subjects for filter
   const uniqueSubjects = Array.from(new Set(blockedQuestions.map(q => q.subject)));
 
@@ -198,8 +233,8 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">Access Denied</h3>
+          <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+          <h3 className="mb-2 text-lg font-semibold text-gray-800">Access Denied</h3>
           <p className="text-gray-600">You don't have permission to access this page.</p>
         </div>
       </div>
@@ -207,23 +242,23 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="p-4 space-y-6 sm:p-6">
       {/* Header */}
       <div className={`rounded-lg p-4 sm:p-6 text-white bg-gradient-to-tr from-[#2E3094] to-[#4C51BF]`}>
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 sm:mb-3 flex items-center gap-3">
-          <AlertTriangle className="h-8 w-8" />
+        <h1 className="flex items-center gap-3 mb-2 text-xl font-bold sm:text-2xl md:text-3xl sm:mb-3">
+          <AlertTriangle className="w-8 h-8" />
           Blocked Questions
         </h1>
-        <p className="text-white/90 text-sm sm:text-base leading-relaxed">
+        <p className="text-sm leading-relaxed text-white/90 sm:text-base">
           View and review questions that have been blocked from exam generation.
         </p>
-        <div className="mt-3 flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-4 mt-3 text-sm">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
+            <FileText className="w-4 h-4" />
             <span>{filteredQuestions.length} questions</span>
           </div>
           <div className="flex items-center gap-2">
-            <CheckCircle className="h-4 w-4" />
+            <CheckCircle className="w-4 h-4" />
             <span>{filteredQuestions.filter(q => q.issue_solved).length} resolved</span>
           </div>
         </div>
@@ -233,12 +268,12 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
       <Card className="border-2 border-gray-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
+            <Search className="w-5 h-5" />
             Filters & Search
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <Label htmlFor="search">Search Questions</Label>
               <Input
@@ -287,9 +322,9 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <RefreshCw className="w-4 h-4 mr-2" />
                 )}
                 Refresh
               </Button>
@@ -300,17 +335,17 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
 
       {/* Blocked Questions List */}
       {isLoading ? (
-        <div className="flex justify-center items-center py-12">
+        <div className="flex items-center justify-center py-12">
           <div className="text-center">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+            <RefreshCw className="w-8 h-8 mx-auto mb-4 text-blue-600 animate-spin" />
             <p className="text-gray-600">Loading blocked questions...</p>
           </div>
         </div>
       ) : filteredQuestions.length === 0 ? (
-        <Card className="border-2 border-dashed border-gray-300">
-          <CardContent className="text-center py-8">
-            <Slash className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-600 mb-2">No Blocked Questions</h3>
+        <Card className="border-2 border-gray-300 border-dashed">
+          <CardContent className="py-8 text-center">
+            <Slash className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+            <h3 className="mb-2 text-lg font-semibold text-gray-600">No Blocked Questions</h3>
             <p className="text-gray-500">
               {blockedQuestions.length === 0 
                 ? "No questions have been blocked yet."
@@ -324,7 +359,7 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
           {filteredQuestions.map((question) => (
             <Card key={question.id} className="border-2 border-red-100 bg-red-50/30">
               <CardContent className="p-6">
-                <div className="flex flex-col lg:flex-row gap-4">
+                <div className="flex flex-col gap-4 lg:flex-row">
                   {/* Question Content */}
                   <div className="flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -347,38 +382,38 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
                       )}
                     </div>
                     
-                    <p className="font-medium text-gray-800 mb-2 line-clamp-2">
+                    <p className="mb-2 font-medium text-gray-800 line-clamp-2">
                       {question.questions}
                     </p>
                     
-                    <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                    <div className="flex items-center gap-4 mb-3 text-sm text-gray-600">
                       <div className="flex items-center gap-1">
-                        <User className="h-4 w-4" />
+                        <User className="w-4 h-4" />
                         <span>Blocked by: {question.creator_username || `User ${question.creator}`}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
+                        <Calendar className="w-4 h-4" />
                         <span>{formatDate(question.created_at)}</span>
                       </div>
                     </div>
                     
                     <div className="flex items-start gap-2">
                       <MessageSquare className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-gray-700 italic">
+                      <p className="text-sm italic text-gray-700">
                         "{question.remarks}"
                       </p>
                     </div>
                   </div>
                   
                   {/* Actions */}
-                  <div className="flex lg:flex-col gap-2">
+                  <div className="flex gap-2 lg:flex-col">
                     <Button
                       onClick={() => openDetailsDialog(question)}
                       variant="outline"
                       size="sm"
                       className="flex-1 lg:flex-none"
                     >
-                      <Eye className="h-4 w-4 mr-2" />
+                      <Eye className="w-4 h-4 mr-2" />
                       View Details
                     </Button>
                     {canWrite() && (
@@ -386,9 +421,9 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
                         onClick={() => openEditDialog(question)}
                         variant="outline"
                         size="sm"
-                        className="flex-1 lg:flex-none text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        className="flex-1 text-blue-600 lg:flex-none hover:text-blue-700 hover:bg-blue-50"
                       >
-                        <CheckCircle className="h-4 w-4 mr-2" />
+                        <CheckCircle className="w-4 h-4 mr-2" />
                         Edit & Restore
                       </Button>
                     )}
@@ -422,16 +457,16 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
                   <Badge variant="outline">Type: {selectedQuestion.type}</Badge>
                 </div>
                 
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-semibold mb-2">Question:</h4>
+                <div className="p-4 rounded-lg bg-gray-50">
+                  <h4 className="mb-2 font-semibold">Question:</h4>
                   <p className="text-gray-800">{selectedQuestion.questions}</p>
                 </div>
               </div>
 
               {/* Options for multiple choice */}
               {selectedQuestion.type === 'option' && selectedQuestion.options && (
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-semibold mb-2">Options:</h4>
+                <div className="p-4 rounded-lg bg-blue-50">
+                  <h4 className="mb-2 font-semibold">Options:</h4>
                   <div className="space-y-2">
                     {typeof selectedQuestion.options === 'object' && selectedQuestion.options !== null ? (
                       Object.entries(selectedQuestion.options).map(([key, value]) => {
@@ -446,7 +481,7 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
                               {String(value)}
                             </span>
                             {isCorrect && (
-                              <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-300">✓ Correct</Badge>
+                              <Badge variant="outline" className="text-xs text-green-700 bg-green-100 border-green-300">✓ Correct</Badge>
                             )}
                           </div>
                         );
@@ -460,8 +495,8 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
 
               {/* Answer for text questions */}
               {selectedQuestion.type === 'text' && (
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <h4 className="font-semibold mb-2">Answer:</h4>
+                <div className="p-4 rounded-lg bg-green-50">
+                  <h4 className="mb-2 font-semibold">Answer:</h4>
                   <p className="text-gray-800">
                     {Array.isArray(selectedQuestion.answer) ? selectedQuestion.answer.join(', ') : selectedQuestion.answer}
                   </p>
@@ -469,8 +504,8 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
               )}
 
               {/* Blocking Details */}
-              <div className="p-4 bg-red-50 rounded-lg border-l-4 border-red-400">
-                <h4 className="font-semibold mb-2 text-red-800">Blocking Information:</h4>
+              <div className="p-4 border-l-4 border-red-400 rounded-lg bg-red-50">
+                <h4 className="mb-2 font-semibold text-red-800">Blocking Information:</h4>
                 <div className="space-y-2 text-sm">
                   <p><strong>Blocked by:</strong> {selectedQuestion.creator_username || `User ${selectedQuestion.creator}`}</p>
                   <p><strong>Date:</strong> {formatDate(selectedQuestion.created_at)}</p>
@@ -510,7 +545,7 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
           
           {selectedQuestion && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="edit-subject">Subject</Label>
                   <Input
@@ -536,7 +571,7 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="edit-semester">Semester</Label>
                   <Input
@@ -595,7 +630,7 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
                     onChange={(e) => setEditFormData({...editFormData, options: e.target.value})}
                     placeholder='{"A": "Option A", "B": "Option B", "C": "Option C", "D": "Option D"}'
                     rows={4}
-                    className="w-full p-3 border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                    className="w-full p-3 font-mono text-sm border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
               )}
@@ -643,7 +678,7 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
                   id="edit-issue-solved"
                   checked={editFormData.issue_solved}
                   onChange={(e) => setEditFormData({...editFormData, issue_solved: e.target.checked})}
-                  className="rounded border-gray-300"
+                  className="border-gray-300 rounded"
                 />
                 <Label htmlFor="edit-issue-solved">Mark issue as solved</Label>
               </div>
@@ -652,16 +687,31 @@ export function BlockedQuestions({ gradientClass }: { gradientClass: string }) {
                 <Button
                   onClick={() => setShowEditDialog(false)}
                   variant="outline"
+                  disabled={isDeleting}
                 >
                   Cancel
                 </Button>
                 <Button
+                  onClick={handleDeleteQuestion}
+                  disabled={isDeleting}
+                  className="text-white bg-red-600 border-red-600 hover:bg-red-700 hover:text-white"
+                >
+                  {isDeleting ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4 mr-2" />
+                  )}
+                  Delete Question
+                </Button>
+                <Button
                   onClick={handleRestoreQuestion}
+                  disabled={isDeleting}
                   className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
                 >
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  <CheckCircle className="w-4 h-4 mr-2" />
                   Restore Question
                 </Button>
+                
               </div>
             </div>
           )}
