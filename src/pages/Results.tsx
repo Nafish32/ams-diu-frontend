@@ -42,6 +42,7 @@ interface ResultsProps {
 interface ExamResult {
   student_id: number;
   exam_id: number;
+  student_f_id: string;
   student_name: string;
   exam_details: {
     department: string;
@@ -99,6 +100,7 @@ export function Results({ gradientClass }: ResultsProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [semesterFilter, setSemesterFilter] = useState('all');
+  const [vivaStatusFilter, setVivaStatusFilter] = useState('all');
   const [performanceFilter, setPerformanceFilter] = useState('all');
   
   // Pagination
@@ -131,6 +133,7 @@ export function Results({ gradientClass }: ResultsProps) {
     if (searchTerm) {
       filtered = filtered.filter(result =>
         result.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        result.student_f_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         result.exam_details.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
         result.exam_details.semester.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -139,6 +142,13 @@ export function Results({ gradientClass }: ResultsProps) {
     // Semester filter
     if (semesterFilter !== 'all') {
       filtered = filtered.filter(result => result.exam_details.semester === semesterFilter);
+    }
+
+    if (vivaStatusFilter !== 'all') {
+      filtered = filtered.filter(result => {
+        const isVivaCompleted = (result.viva_marks?.marks || 0) > 0;
+        return vivaStatusFilter === 'completed' ? isVivaCompleted : !isVivaCompleted;
+      });
     }
 
     // Performance filter
@@ -157,7 +167,7 @@ export function Results({ gradientClass }: ResultsProps) {
     }
 
     setFilteredResults(filtered);
-  }, [examResults, searchTerm, semesterFilter, performanceFilter]);
+  }, [examResults, searchTerm, semesterFilter, vivaStatusFilter, performanceFilter]);
 
   const loadExamResults = async () => {
     if (!user?.id) return;
@@ -353,12 +363,12 @@ export function Results({ gradientClass }: ResultsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
             <div className="space-y-2">
               <Label htmlFor="search">Search Students</Label>
               <Input
                 id="search"
-                placeholder="Search by name, department..."
+                placeholder="Search by name, form ID, department..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -367,7 +377,7 @@ export function Results({ gradientClass }: ResultsProps) {
             <div className="space-y-2">
               <Label htmlFor="semester">Semester</Label>
               <Select value={semesterFilter} onValueChange={setSemesterFilter}>
-                <SelectTrigger>
+                <SelectTrigger id="semester">
                   <SelectValue placeholder="All semesters" />
                 </SelectTrigger>
                 <SelectContent>
@@ -382,7 +392,7 @@ export function Results({ gradientClass }: ResultsProps) {
             <div className="space-y-2">
               <Label htmlFor="performance">Performance</Label>
               <Select value={performanceFilter} onValueChange={setPerformanceFilter}>
-                <SelectTrigger>
+                <SelectTrigger id="performance">
                   <SelectValue placeholder="All performance" />
                 </SelectTrigger>
                 <SelectContent>
@@ -392,6 +402,20 @@ export function Results({ gradientClass }: ResultsProps) {
                   <SelectItem value="average">Average (60-79%)</SelectItem>
                   <SelectItem value="below-average">Below Average (40-59%)</SelectItem>
                   <SelectItem value="poor">Poor (&lt;40%)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="viva-status">Viva Status</Label>
+              <Select value={vivaStatusFilter} onValueChange={setVivaStatusFilter}>
+                <SelectTrigger id="viva-status">
+                  <SelectValue placeholder="All viva status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Viva Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -449,6 +473,7 @@ export function Results({ gradientClass }: ResultsProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Form ID</TableHead>
                     <TableHead>Student</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Semester</TableHead>
@@ -466,6 +491,11 @@ export function Results({ gradientClass }: ResultsProps) {
                     
                     return (
                       <TableRow key={`${result.student_id}-${result.exam_id}`} className="hover:bg-gray-50">
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {result.student_f_id}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <User className="w-4 h-4 text-gray-500" />
