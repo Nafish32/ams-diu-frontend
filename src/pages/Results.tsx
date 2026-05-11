@@ -1,18 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { 
-  FilePlus, 
-  Search, 
-  RefreshCw, 
-  Eye, 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table';
+import {
+  FilePlus,
+  Search,
+  RefreshCw,
+  Eye,
   BarChart3,
-  User, 
+  User,
   BookOpen,
   Calendar,
   Building2,
@@ -25,9 +44,15 @@ import {
   Target,
   Users,
   Trophy,
-  GraduationCap
+  GraduationCap,
 } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import { VivaModal } from '../components/VivaModal';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
@@ -93,7 +118,7 @@ interface ApiResponse {
 export function Results({ gradientClass }: ResultsProps) {
   const { user } = useAuth();
   const { canRead } = usePermissions();
-  
+
   // State management
   const [examResults, setExamResults] = useState<ExamResult[]>([]);
   const [filteredResults, setFilteredResults] = useState<ExamResult[]>([]);
@@ -102,12 +127,12 @@ export function Results({ gradientClass }: ResultsProps) {
   const [semesterFilter, setSemesterFilter] = useState('all');
   const [vivaStatusFilter, setVivaStatusFilter] = useState('all');
   const [performanceFilter, setPerformanceFilter] = useState('all');
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  
+
   // Dialog states
   const [showResultDialog, setShowResultDialog] = useState(false);
   const [showVivaModal, setShowVivaModal] = useState(false);
@@ -131,23 +156,36 @@ export function Results({ gradientClass }: ResultsProps) {
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(result =>
-        result.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        result.student_f_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        result.exam_details.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        result.exam_details.semester.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        result =>
+          result.student_name
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          result.student_f_id
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          result.exam_details.department
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          result.exam_details.semester
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()),
       );
     }
 
     // Semester filter
     if (semesterFilter !== 'all') {
-      filtered = filtered.filter(result => result.exam_details.semester === semesterFilter);
+      filtered = filtered.filter(
+        result => result.exam_details.semester === semesterFilter,
+      );
     }
 
     if (vivaStatusFilter !== 'all') {
       filtered = filtered.filter(result => {
         const isVivaCompleted = (result.viva_marks?.marks || 0) > 0;
-        return vivaStatusFilter === 'completed' ? isVivaCompleted : !isVivaCompleted;
+        return vivaStatusFilter === 'completed'
+          ? isVivaCompleted
+          : !isVivaCompleted;
       });
     }
 
@@ -156,18 +194,30 @@ export function Results({ gradientClass }: ResultsProps) {
       filtered = filtered.filter(result => {
         const score = result.results.score_percentage;
         switch (performanceFilter) {
-          case 'excellent': return score >= 90;
-          case 'good': return score >= 80 && score < 90;
-          case 'average': return score >= 60 && score < 80;
-          case 'below-average': return score >= 40 && score < 60;
-          case 'poor': return score < 40;
-          default: return true;
+          case 'excellent':
+            return score >= 90;
+          case 'good':
+            return score >= 80 && score < 90;
+          case 'average':
+            return score >= 60 && score < 80;
+          case 'below-average':
+            return score >= 40 && score < 60;
+          case 'poor':
+            return score < 40;
+          default:
+            return true;
         }
       });
     }
 
     setFilteredResults(filtered);
-  }, [examResults, searchTerm, semesterFilter, vivaStatusFilter, performanceFilter]);
+  }, [
+    examResults,
+    searchTerm,
+    semesterFilter,
+    vivaStatusFilter,
+    performanceFilter,
+  ]);
 
   const loadExamResults = async () => {
     if (!user?.id) return;
@@ -178,13 +228,15 @@ export function Results({ gradientClass }: ResultsProps) {
         page: currentPage,
         ...(semesterFilter !== 'all' ? { semester: semesterFilter } : {}),
       });
-      
+
       if (data.success) {
         setExamResults(data.data.results);
         setTotalPages(data.data.pagination.total_pages);
         setTotalCount(data.data.pagination.count);
         setCurrentPage(data.data.pagination.current_page);
-        toast.success(data.message || `Loaded ${data.data.results.length} exam results`);
+        toast.success(
+          data.message || `Loaded ${data.data.results.length} exam results`,
+        );
       } else {
         throw new Error(data.message || 'Failed to load exam results');
       }
@@ -215,7 +267,9 @@ export function Results({ gradientClass }: ResultsProps) {
   const handlePrepareAdmissionBoard = async (examId: number) => {
     try {
       setPreparingExamId(examId);
-      const response = await admissionResultsAPI.calculateResults({ exam_id: examId });
+      const response = await admissionResultsAPI.calculateResults({
+        exam_id: examId,
+      });
       toast.success(
         response?.message || `Admission board prepared for exam ${examId}`,
       );
@@ -232,10 +286,12 @@ export function Results({ gradientClass }: ResultsProps) {
   };
 
   const getPerformanceColor = (percentage: number) => {
-    if (percentage >= 90) return 'text-purple-600 bg-purple-50 border-purple-200';
+    if (percentage >= 90)
+      return 'text-purple-600 bg-purple-50 border-purple-200';
     if (percentage >= 80) return 'text-green-600 bg-green-50 border-green-200';
     if (percentage >= 60) return 'text-blue-600 bg-blue-50 border-blue-200';
-    if (percentage >= 40) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    if (percentage >= 40)
+      return 'text-yellow-600 bg-yellow-50 border-yellow-200';
     return 'text-red-600 bg-red-50 border-red-200';
   };
 
@@ -254,15 +310,61 @@ export function Results({ gradientClass }: ResultsProps) {
     return AlertTriangle;
   };
 
+  const normalizeDepartmentText = (value?: string | null) =>
+    (value || '')
+      .toLowerCase()
+      .replace(/^department\s+of\s+/, '')
+      .replace(/&/g, 'and')
+      .replace(/\([^)]*\)/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+  const getDisplayDepartment = (department?: string | null) => {
+    const rawDepartment = (department || '').trim();
+    const userDepartment = user?.department_details;
+
+    if (!rawDepartment) return 'N/A';
+
+    if (userDepartment?.department_shortname) {
+      const rawNormalized = normalizeDepartmentText(rawDepartment);
+      const userNameNormalized = normalizeDepartmentText(
+        userDepartment.department_name,
+      );
+      const shortName = userDepartment.department_shortname.trim();
+      const shortNameMatch = rawDepartment.match(/\(([^)]+)\)/)?.[1]?.trim();
+
+      if (
+        rawNormalized === userNameNormalized ||
+        rawNormalized.includes(userNameNormalized) ||
+        userNameNormalized.includes(rawNormalized) ||
+        shortNameMatch?.toLowerCase() === shortName.toLowerCase()
+      ) {
+        return shortName;
+      }
+    }
+
+    return rawDepartment.replace(/^Department\s+of\s+/i, '').trim();
+  };
+
   // Get unique values for filters
-  const uniqueSemesters = sortSemesterValues(examResults.map((result) => result.exam_details.semester));
+  const uniqueSemesters = sortSemesterValues(
+    examResults.map(result => result.exam_details.semester),
+  );
 
   // Calculate statistics
-  const averageScore = examResults.length > 0 
-    ? examResults.reduce((sum, result) => sum + result.results.score_percentage, 0) / examResults.length 
-    : 0;
-  const excellentCount = examResults.filter(r => r.results.score_percentage >= 90).length;
-  const goodCount = examResults.filter(r => r.results.score_percentage >= 80 && r.results.score_percentage < 90).length;
+  const averageScore =
+    examResults.length > 0
+      ? examResults.reduce(
+          (sum, result) => sum + result.results.score_percentage,
+          0,
+        ) / examResults.length
+      : 0;
+  const excellentCount = examResults.filter(
+    r => r.results.score_percentage >= 90,
+  ).length;
+  const goodCount = examResults.filter(
+    r => r.results.score_percentage >= 80 && r.results.score_percentage < 90,
+  ).length;
   const totalStudents = examResults.length;
 
   // Permission check
@@ -271,8 +373,12 @@ export function Results({ gradientClass }: ResultsProps) {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-500" />
-          <h3 className="mb-2 text-lg font-semibold text-gray-800">Access Denied</h3>
-          <p className="text-gray-600">You don't have permission to access this page.</p>
+          <h3 className="mb-2 text-lg font-semibold text-gray-800">
+            Access Denied
+          </h3>
+          <p className="text-gray-600">
+            You don't have permission to access this page.
+          </p>
         </div>
       </div>
     );
@@ -314,7 +420,9 @@ export function Results({ gradientClass }: ResultsProps) {
         <Card className="border-2 border-blue-200 bg-blue-50/50">
           <CardContent className="p-4 text-center">
             <Users className="w-6 h-6 mx-auto mb-2 text-blue-600" />
-            <div className="text-2xl font-bold text-blue-600">{totalStudents}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {totalStudents}
+            </div>
             <div className="text-xs text-blue-700">Total Students</div>
           </CardContent>
         </Card>
@@ -322,7 +430,9 @@ export function Results({ gradientClass }: ResultsProps) {
         <Card className="border-2 border-purple-200 bg-purple-50/50">
           <CardContent className="p-4 text-center">
             <Trophy className="w-6 h-6 mx-auto mb-2 text-purple-600" />
-            <div className="text-2xl font-bold text-purple-600">{excellentCount}</div>
+            <div className="text-2xl font-bold text-purple-600">
+              {excellentCount}
+            </div>
             <div className="text-xs text-purple-700">Excellent (90%+)</div>
           </CardContent>
         </Card>
@@ -338,7 +448,9 @@ export function Results({ gradientClass }: ResultsProps) {
         <Card className="border-2 border-yellow-200 bg-yellow-50/50">
           <CardContent className="p-4 text-center">
             <TrendingUp className="w-6 h-6 mx-auto mb-2 text-yellow-600" />
-            <div className="text-2xl font-bold text-yellow-600">{formatPercentage(averageScore)}</div>
+            <div className="text-2xl font-bold text-yellow-600">
+              {formatPercentage(averageScore)}
+            </div>
             <div className="text-xs text-yellow-700">Average Score</div>
           </CardContent>
         </Card>
@@ -347,7 +459,14 @@ export function Results({ gradientClass }: ResultsProps) {
           <CardContent className="p-4 text-center">
             <Target className="w-6 h-6 mx-auto mb-2 text-indigo-600" />
             <div className="text-2xl font-bold text-indigo-600">
-              {formatPercentage(totalStudents > 0 ? (examResults.filter(r => r.results.score_percentage >= 60).length / totalStudents) * 100 : 0)}
+              {formatPercentage(
+                totalStudents > 0
+                  ? (examResults.filter(r => r.results.score_percentage >= 60)
+                      .length /
+                      totalStudents) *
+                      100
+                  : 0,
+              )}
             </div>
             <div className="text-xs text-indigo-700">Pass Rate</div>
           </CardContent>
@@ -370,7 +489,7 @@ export function Results({ gradientClass }: ResultsProps) {
                 id="search"
                 placeholder="Search by name, form ID, department..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={e => setSearchTerm(e.target.value)}
               />
             </div>
 
@@ -383,7 +502,9 @@ export function Results({ gradientClass }: ResultsProps) {
                 <SelectContent>
                   <SelectItem value="all">All Semesters</SelectItem>
                   {uniqueSemesters.map(semester => (
-                    <SelectItem key={semester} value={semester}>{formatSemesterLabel(semester)}</SelectItem>
+                    <SelectItem key={semester} value={semester}>
+                      {formatSemesterLabel(semester)}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -391,7 +512,10 @@ export function Results({ gradientClass }: ResultsProps) {
 
             <div className="space-y-2">
               <Label htmlFor="performance">Performance</Label>
-              <Select value={performanceFilter} onValueChange={setPerformanceFilter}>
+              <Select
+                value={performanceFilter}
+                onValueChange={setPerformanceFilter}
+              >
                 <SelectTrigger id="performance">
                   <SelectValue placeholder="All performance" />
                 </SelectTrigger>
@@ -400,7 +524,9 @@ export function Results({ gradientClass }: ResultsProps) {
                   <SelectItem value="excellent">Excellent (90%+)</SelectItem>
                   <SelectItem value="good">Good (80-89%)</SelectItem>
                   <SelectItem value="average">Average (60-79%)</SelectItem>
-                  <SelectItem value="below-average">Below Average (40-59%)</SelectItem>
+                  <SelectItem value="below-average">
+                    Below Average (40-59%)
+                  </SelectItem>
                   <SelectItem value="poor">Poor (&lt;40%)</SelectItem>
                 </SelectContent>
               </Select>
@@ -408,7 +534,10 @@ export function Results({ gradientClass }: ResultsProps) {
 
             <div className="space-y-2">
               <Label htmlFor="viva-status">Viva Status</Label>
-              <Select value={vivaStatusFilter} onValueChange={setVivaStatusFilter}>
+              <Select
+                value={vivaStatusFilter}
+                onValueChange={setVivaStatusFilter}
+              >
                 <SelectTrigger id="viva-status">
                   <SelectValue placeholder="All viva status" />
                 </SelectTrigger>
@@ -422,9 +551,9 @@ export function Results({ gradientClass }: ResultsProps) {
 
             <div className="space-y-2">
               <Label>&nbsp;</Label>
-              <Button 
-                onClick={loadExamResults} 
-                variant="outline" 
+              <Button
+                onClick={loadExamResults}
+                variant="outline"
                 className="w-full"
                 disabled={isLoading}
               >
@@ -448,7 +577,8 @@ export function Results({ gradientClass }: ResultsProps) {
             Student Exam Results
           </CardTitle>
           <CardDescription>
-            View and manage student exam results with viva assessment capabilities
+            View and manage student exam results with viva assessment
+            capabilities
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -460,12 +590,13 @@ export function Results({ gradientClass }: ResultsProps) {
           ) : filteredResults.length === 0 ? (
             <div className="py-8 text-center">
               <FilePlus className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <h3 className="mb-2 text-lg font-semibold text-gray-600">No Results Found</h3>
+              <h3 className="mb-2 text-lg font-semibold text-gray-600">
+                No Results Found
+              </h3>
               <p className="text-gray-500">
-                {examResults.length === 0 
-                  ? "No exam results available yet."
-                  : "No results match your current filters."
-                }
+                {examResults.length === 0
+                  ? 'No exam results available yet.'
+                  : 'No results match your current filters.'}
               </p>
             </div>
           ) : (
@@ -485,12 +616,17 @@ export function Results({ gradientClass }: ResultsProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredResults.map((result) => {
+                  {filteredResults.map(result => {
                     const isVivaCompleted = result.viva_marks?.marks > 0;
-                    const PerformanceIcon = getPerformanceBadgeIcon(result.results.score_percentage);
-                    
+                    const PerformanceIcon = getPerformanceBadgeIcon(
+                      result.results.score_percentage,
+                    );
+
                     return (
-                      <TableRow key={`${result.student_id}-${result.exam_id}`} className="hover:bg-gray-50">
+                      <TableRow
+                        key={`${result.student_id}-${result.exam_id}`}
+                        className="hover:bg-gray-50"
+                      >
                         <TableCell>
                           <Badge variant="outline" className="text-xs">
                             {result.student_f_id}
@@ -499,13 +635,19 @@ export function Results({ gradientClass }: ResultsProps) {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <User className="w-4 h-4 text-gray-500" />
-                            <span className="font-medium">{result.student_name}</span>
+                            <span className="font-medium">
+                              {result.student_name}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Building2 className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm">{result.exam_details.department}</span>
+                            <span className="text-sm">
+                              {getDisplayDepartment(
+                                result.exam_details.department,
+                              )}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -530,8 +672,8 @@ export function Results({ gradientClass }: ResultsProps) {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge 
-                            variant="outline" 
+                          <Badge
+                            variant="outline"
                             className={`${getPerformanceColor(result.results.score_percentage)} font-medium`}
                           >
                             <PerformanceIcon className="w-3 h-3 mr-1" />
@@ -540,12 +682,18 @@ export function Results({ gradientClass }: ResultsProps) {
                         </TableCell>
                         <TableCell>
                           {isVivaCompleted ? (
-                            <Badge variant="default" className="text-green-800 bg-green-100 border-green-200">
+                            <Badge
+                              variant="default"
+                              className="text-green-800 bg-green-100 border-green-200"
+                            >
                               <Award className="w-3 h-3 mr-1" />
                               Completed ({result.viva_marks.marks})
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="text-yellow-800 border-yellow-200 bg-yellow-50">
+                            <Badge
+                              variant="outline"
+                              className="text-yellow-800 border-yellow-200 bg-yellow-50"
+                            >
                               <AlertTriangle className="w-3 h-3 mr-1" />
                               Pending
                             </Badge>
@@ -564,17 +712,20 @@ export function Results({ gradientClass }: ResultsProps) {
                             </Button>
                             <Button
                               onClick={() => openVivaModal(result)}
-                              variant={isVivaCompleted ? "outline" : "default"}
+                              variant={isVivaCompleted ? 'outline' : 'default'}
                               size="sm"
-                              className={isVivaCompleted 
-                                ? "text-purple-600 hover:text-purple-700 hover:bg-purple-50" 
-                                : "bg-gradient-to-r from-[#2E3094] to-[#4C51BF] hover:from-[#1E2078] hover:to-[#3A3F9A] text-white"
+                              className={
+                                isVivaCompleted
+                                  ? 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'
+                                  : 'bg-gradient-to-r from-[#2E3094] to-[#4C51BF] hover:from-[#1E2078] hover:to-[#3A3F9A] text-white'
                               }
                             >
                               <GraduationCap className="w-4 h-4 mr-1" />
-                              {isVivaCompleted ? 'Update Viva' : 'Give Viva Marks'}
+                              {isVivaCompleted
+                                ? 'Update Viva'
+                                : 'Give Viva Marks'}
                             </Button>
-                            
+
                             {/* <Button
                               onClick={() => handlePrepareAdmissionBoard(result.exam_id)}
                               variant="outline"
@@ -589,7 +740,6 @@ export function Results({ gradientClass }: ResultsProps) {
                               )}
                               Prepare Board
                             </Button> */}
-                            
                           </div>
                         </TableCell>
                       </TableRow>
@@ -604,46 +754,101 @@ export function Results({ gradientClass }: ResultsProps) {
 
       {/* Result Details Dialog */}
       <Dialog open={showResultDialog} onOpenChange={setShowResultDialog}>
-        <DialogContent 
-          className="max-w-[95vw] w-[95vw] max-h-[95vh] overflow-y-auto"
-          style={{ 
-            minHeight: '90vh',
-            minWidth: '95vw'
+        <DialogContent
+          className="w-[95vw] max-w-[95vw] xl:max-w-[1400px] h-[82vh] max-h-[82vh] overflow-hidden flex flex-col gap-2 p-4"
+          style={{
+            minWidth: '95vw',
           }}
         >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
+          <DialogHeader className="flex-shrink-0 pb-2 border-b border-slate-200">
+            <DialogTitle className="flex items-center gap-2 text-lg font-extrabold text-slate-800">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2E3094]/10">
+                <BarChart3 className="w-4 h-4 text-[#2E3094]" />
+              </span>
               Detailed Result Analysis
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs text-slate-500">
               Complete performance breakdown for {selectedResult?.student_name}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedResult && (
-            <div className="space-y-6">
-              {/* Student Overview */}
-              <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-                <CardContent className="p-4">
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div>
-                      <h3 className="flex items-center gap-2 mb-2 text-lg font-semibold">
-                        <User className="w-5 h-5" />
-                        {selectedResult.student_name}
+            <div className="grid min-h-0 flex-1 grid-rows-[auto_auto_minmax(88px,auto)_auto] gap-2">
+              <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm">
+                <CardContent className="p-3">
+                  <div className="grid grid-cols-1 items-center gap-3 xl:grid-cols-[1fr_auto]">
+                    <div className="min-w-0">
+                      <h3 className="flex items-center gap-2 text-base font-bold text-slate-800">
+                        <User className="h-4 w-4 text-[#2E3094]" />
+                        <span className="truncate">
+                          {selectedResult.student_name}
+                        </span>
                       </h3>
-                      <div className="space-y-1 text-sm">
-                        <p><strong>Department:</strong> {selectedResult.exam_details.department}</p>
-                        <p><strong>Semester:</strong> {formatSemesterLabel(selectedResult.exam_details.semester)}</p>
-                        <p><strong>Total Questions:</strong> {selectedResult.exam_details.total_questions}</p>
+                      <div className="mt-2 grid grid-cols-1 gap-1.5 text-xs text-slate-600 md:grid-cols-3">
+                        <p>
+                          <strong>Department:</strong>{' '}
+                          {getDisplayDepartment(
+                            selectedResult.exam_details.department,
+                          )}
+                        </p>
+                        <p>
+                          <strong>Semester:</strong>{' '}
+                          {formatSemesterLabel(
+                            selectedResult.exam_details.semester,
+                          )}
+                        </p>
+                        <p>
+                          <strong>Total Questions:</strong>{' '}
+                          {selectedResult.exam_details.total_questions}
+                        </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border ${getPerformanceColor(selectedResult.results.score_percentage)}`}>
-                        {React.createElement(getPerformanceBadgeIcon(selectedResult.results.score_percentage), { className: "h-5 w-5" })}
+
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <div
+                        className={`flex min-w-[140px] items-center gap-2 rounded-2xl border px-3 py-2 ${getPerformanceColor(selectedResult.results.score_percentage)}`}
+                      >
+                        {React.createElement(
+                          getPerformanceBadgeIcon(
+                            selectedResult.results.score_percentage,
+                          ),
+                          { className: 'h-5 w-5 shrink-0' },
+                        )}
                         <div>
-                          <div className="text-lg font-bold">{formatPercentage(selectedResult.results.score_percentage)}</div>
-                          <div className="text-xs">{getPerformanceLabel(selectedResult.results.score_percentage)}</div>
+                          <div className="text-lg font-extrabold leading-none">
+                            {formatPercentage(
+                              selectedResult.results.score_percentage,
+                            )}
+                          </div>
+                          <div className="mt-0.5 text-xs font-semibold">
+                            {getPerformanceLabel(
+                              selectedResult.results.score_percentage,
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex min-w-[140px] items-center gap-2 rounded-2xl border border-green-200 bg-green-50 px-3 py-2">
+                        <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
+                        <div>
+                          <div className="text-lg font-extrabold leading-none text-green-600">
+                            {selectedResult.results.correct_answers}
+                          </div>
+                          <div className="mt-0.5 text-xs font-semibold text-green-700">
+                            Correct Answers
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex min-w-[140px] items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2">
+                        <XCircle className="h-5 w-5 shrink-0 text-red-600" />
+                        <div>
+                          <div className="text-lg font-extrabold leading-none text-red-600">
+                            {selectedResult.results.wrong_answers}
+                          </div>
+                          <div className="mt-0.5 text-xs font-semibold text-red-700">
+                            Wrong Answers
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -651,123 +856,141 @@ export function Results({ gradientClass }: ResultsProps) {
                 </CardContent>
               </Card>
 
-              {/* Overall Performance */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <Card className="border-green-200 bg-green-50">
-                  <CardContent className="p-4 text-center">
-                    <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-600" />
-                    <div className="text-2xl font-bold text-green-600">{selectedResult.results.correct_answers}</div>
-                    <div className="text-sm text-green-700">Correct Answers</div>
-                  </CardContent>
-                </Card>
-                
-                <Card className="border-red-200 bg-red-50">
-                  <CardContent className="p-4 text-center">
-                    <XCircle className="w-8 h-8 mx-auto mb-2 text-red-600" />
-                    <div className="text-2xl font-bold text-red-600">{selectedResult.results.wrong_answers}</div>
-                    <div className="text-sm text-red-700">Wrong Answers</div>
-                  </CardContent>
-                </Card>
-                
-                <Card className="border-blue-200 bg-blue-50">
-                  <CardContent className="p-4 text-center">
-                    <TrendingUp className="w-8 h-8 mx-auto mb-2 text-blue-600" />
-                    <div className="text-2xl font-bold text-blue-600">{formatPercentage(selectedResult.results.score_percentage)}</div>
-                    <div className="text-sm text-blue-700">Overall Score</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Subject-wise Performance */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="w-5 h-5" />
+              <Card className="flex h-full min-h-[160px] flex-col overflow-visible border-slate-200 shadow-sm">
+                <CardHeader className="px-4 py-2 border-b border-slate-100">
+                  <CardTitle className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <BookOpen className="h-4 w-4 text-[#2E3094]" />
                     Subject-wise Performance Analysis
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    {selectedResult.subjects
-                      .sort((a, b) => b.score_percentage - a.score_percentage)
-                      .map((subject) => {
-                        const SubjectIcon = getPerformanceBadgeIcon(subject.score_percentage);
-                        return (
-                          <div key={subject.subject_id} className="p-4 border rounded-lg bg-gray-50">
-                            <div className="flex items-center justify-between mb-3">
-                              <h4 className="flex items-center gap-2 font-semibold">
-                                <BookOpen className="w-4 h-4 text-gray-500" />
-                                {subject.subject_name}
-                              </h4>
-                              <Badge 
-                                variant="outline" 
-                                className={`${getPerformanceColor(subject.score_percentage)} font-medium`}
-                              >
-                                <SubjectIcon className="w-3 h-3 mr-1" />
-                                {formatPercentage(subject.score_percentage)}
-                              </Badge>
-                            </div>
-                            
-                            <div className="grid grid-cols-4 gap-2 text-xs text-center">
-                              <div className="p-2 bg-white rounded">
-                                <div className="font-semibold">{subject.total_questions}</div>
-                                <div className="text-gray-600">Total</div>
+                <CardContent className="p-2">
+                  {selectedResult.subjects?.length ? (
+                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                      {selectedResult.subjects
+                        .sort((a, b) => b.score_percentage - a.score_percentage)
+                        .map(subject => {
+                          const SubjectIcon = getPerformanceBadgeIcon(
+                            subject.score_percentage,
+                          );
+                          return (
+                            <div
+                              key={subject.subject_id}
+                              className="rounded-xl border border-slate-200 bg-[#F8FAFC] p-3 shadow-sm transition-colors hover:border-[#2E3094]/25"
+                            >
+                              <div className="mb-2 flex items-start justify-between gap-2">
+                                <h4 className="flex min-w-0 items-center gap-2 text-sm font-bold text-slate-800">
+                                  <BookOpen className="h-4 w-4 shrink-0 text-slate-500" />
+                                  <span className="line-clamp-2">
+                                    {subject.subject_name}
+                                  </span>
+                                </h4>
+                                <Badge
+                                  variant="outline"
+                                  className={`${getPerformanceColor(subject.score_percentage)} shrink-0 rounded-lg px-2 py-0.5 text-[11px] font-bold`}
+                                >
+                                  <SubjectIcon className="mr-1 h-3 w-3" />
+                                  {formatPercentage(subject.score_percentage)}
+                                </Badge>
                               </div>
-                              <div className="p-2 bg-green-100 rounded">
-                                <div className="font-semibold text-green-600">{subject.correct_answers}</div>
-                                <div className="text-gray-600">Correct</div>
-                              </div>
-                              <div className="p-2 bg-red-100 rounded">
-                                <div className="font-semibold text-red-600">{subject.wrong_answers}</div>
-                                <div className="text-gray-600">Wrong</div>
-                              </div>
-                              <div className="p-2 bg-blue-100 rounded">
-                                <div className="font-semibold text-blue-600">
-                                  {subject.total_questions - subject.correct_answers - subject.wrong_answers}
+
+                              <div className="grid grid-cols-4 gap-1.5 text-center">
+                                <div className="rounded-lg bg-white px-1.5 py-2 shadow-sm">
+                                  <div className="text-sm font-bold leading-none text-slate-900">
+                                    {subject.total_questions}
+                                  </div>
+                                  <div className="mt-1 text-[11px] font-medium text-slate-600">
+                                    Total
+                                  </div>
                                 </div>
-                                <div className="text-gray-600">Skipped</div>
+                                <div className="rounded-lg bg-green-100 px-1.5 py-2 shadow-sm">
+                                  <div className="text-sm font-bold leading-none text-green-600">
+                                    {subject.correct_answers}
+                                  </div>
+                                  <div className="mt-1 text-[11px] font-medium text-slate-600">
+                                    Correct
+                                  </div>
+                                </div>
+                                <div className="rounded-lg bg-red-100 px-1.5 py-2 shadow-sm">
+                                  <div className="text-sm font-bold leading-none text-red-600">
+                                    {subject.wrong_answers}
+                                  </div>
+                                  <div className="mt-1 text-[11px] font-medium text-slate-600">
+                                    Wrong
+                                  </div>
+                                </div>
+                                <div className="rounded-lg bg-blue-100 px-1.5 py-2 shadow-sm">
+                                  <div className="text-sm font-bold leading-none text-blue-600">
+                                    {subject.total_questions -
+                                      subject.correct_answers -
+                                      subject.wrong_answers}
+                                  </div>
+                                  <div className="mt-1 text-[11px] font-medium text-slate-600">
+                                    Skipped
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                  </div>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <div className="flex h-full min-h-[120px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-sm font-medium text-slate-500">
+                      No subject-wise performance data available.
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Viva Assessment */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <GraduationCap className="w-5 h-5" />
+              <Card className="min-h-0 overflow-hidden border-slate-200 shadow-sm flex-shrink-0">
+                <CardHeader className="px-4 py-2 border-b border-slate-100">
+                  <CardTitle className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <GraduationCap className="h-4 w-4 text-[#2E3094]" />
                     Viva Assessment
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="max-h-[100px] overflow-y-auto p-2">
                   {selectedResult?.viva_marks?.marks > 0 ? (
-                    <div className="p-4 border border-green-200 rounded-lg bg-green-50">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-green-800">Viva Completed</h4>
-                        <Badge variant="default" className="text-green-800 bg-green-100 border-green-200">
+                    <div className="rounded-xl border border-green-200 bg-green-50 p-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <h4 className="text-sm font-semibold text-green-800">
+                          Viva Completed
+                        </h4>
+                        <Badge
+                          variant="default"
+                          className="text-green-800 bg-green-100 border-green-200"
+                        >
                           <Award className="w-3 h-3 mr-1" />
                           {selectedResult.viva_marks.marks} marks
                         </Badge>
                       </div>
                       {selectedResult.viva_marks.remarks && (
-                        <div className="mt-3">
-                          <p className="mb-1 text-sm font-medium text-green-700">Examiner's Remarks:</p>
-                          <p className="p-2 text-sm text-green-600 bg-white border rounded">
+                        <div className="mt-1.5">
+                          <p className="mb-1 text-xs font-medium text-green-700">
+                            Examiner's Remarks:
+                          </p>
+                          <p className="rounded-lg border bg-white p-2 text-xs text-green-600 line-clamp-2">
                             {selectedResult.viva_marks.remarks}
                           </p>
                         </div>
                       )}
-                      {Object.keys(selectedResult.viva_marks.rubrics_marks).length > 0 && (
-                        <div className="mt-3">
-                          <p className="mb-2 text-sm font-medium text-green-700">Rubric Breakdown:</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {Object.entries(selectedResult.viva_marks.rubrics_marks).map(([rubricId, marks]) => (
-                              <div key={rubricId} className="p-2 text-xs bg-white border rounded">
-                                <span className="font-medium">Rubric {rubricId}:</span> {marks} marks
+                      {Object.keys(selectedResult.viva_marks.rubrics_marks)
+                        .length > 0 && (
+                        <div className="mt-1.5">
+                          <p className="mb-1 text-xs font-medium text-green-700">
+                            Rubric Breakdown:
+                          </p>
+                          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                            {Object.entries(
+                              selectedResult.viva_marks.rubrics_marks,
+                            ).map(([rubricId, marks]) => (
+                              <div
+                                key={rubricId}
+                                className="rounded-lg border bg-white p-2 text-xs"
+                              >
+                                <span className="font-medium">
+                                  Rubric {rubricId}:
+                                </span>{' '}
+                                {marks} marks
                               </div>
                             ))}
                           </div>
@@ -775,15 +998,19 @@ export function Results({ gradientClass }: ResultsProps) {
                       )}
                     </div>
                   ) : (
-                    <div className="p-4 text-center border border-yellow-200 rounded-lg bg-yellow-50">
-                      <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-yellow-600" />
-                      <p className="font-medium text-yellow-800">Viva examination has not been completed</p>
-                      <Button 
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-yellow-200 bg-yellow-50 p-2">
+                      <div className="flex items-center gap-3">
+                        <AlertTriangle className="h-6 w-6 shrink-0 text-yellow-600" />
+                        <p className="text-sm font-medium text-yellow-800">
+                          Viva examination has not been completed
+                        </p>
+                      </div>
+                      <Button
                         onClick={() => {
                           setShowResultDialog(false);
                           openVivaModal(selectedResult!);
                         }}
-                        className="mt-3 bg-gradient-to-r from-[#2E3094] to-[#4C51BF] hover:from-[#1E2078] hover:to-[#3A3F9A]"
+                        className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF] hover:from-[#1E2078] hover:to-[#3A3F9A]"
                         size="sm"
                       >
                         <GraduationCap className="w-4 h-4 mr-1" />
@@ -793,29 +1020,6 @@ export function Results({ gradientClass }: ResultsProps) {
                   )}
                 </CardContent>
               </Card>
-
-              {/* Actions */}
-              <div className="flex justify-end gap-3">
-                <Button variant="outline" onClick={() => setShowResultDialog(false)}>
-                  Close
-                </Button>
-                {selectedResult && (
-                  <Button 
-                    onClick={() => {
-                      setShowResultDialog(false);
-                      openVivaModal(selectedResult);
-                    }}
-                    variant={selectedResult.viva_marks?.marks > 0 ? "outline" : "default"}
-                    className={selectedResult.viva_marks?.marks > 0 
-                      ? "text-purple-600 hover:text-purple-700 hover:bg-purple-50" 
-                      : "bg-gradient-to-r from-[#2E3094] to-[#4C51BF] hover:from-[#1E2078] hover:to-[#3A3F9A]"
-                    }
-                  >
-                    <GraduationCap className="w-4 h-4 mr-1" />
-                    {selectedResult.viva_marks?.marks > 0 ? 'Update Viva Marks' : 'Give Viva Marks'}
-                  </Button>
-                )}
-              </div>
             </div>
           )}
         </DialogContent>
