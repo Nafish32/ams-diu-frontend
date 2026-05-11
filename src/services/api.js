@@ -2,6 +2,7 @@ import axios from 'axios';
 
 // Base URL for the API
 const BASE_URL = 'https://ams-diu-backend-l1ag.onrender.com';
+//const BASE_URL = 'http://localhost:8000';
 
 // Create axios instance with default config
 const api = axios.create({
