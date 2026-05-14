@@ -6,7 +6,7 @@ import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Sliders, Plus, Trash2, RefreshCw, AlertCircle, Building, Edit } from 'lucide-react';
+import { Sliders, Plus, Trash2, RefreshCw, AlertCircle, Building, Edit, Loader2 } from 'lucide-react';
 import { thresholdAPI, departmentAPI, admissionResultsAPI } from '../services/api';
 import { buildAcademicSemesterOptions, formatSemesterLabel } from '../lib/semester';
 import toast from 'react-hot-toast';
@@ -19,6 +19,7 @@ interface Department {
 
 interface ThresholdMapping {
   id: number;
+  department: number;
   department_id: number;
   department_name: string;
   department_shortname: string;
@@ -46,6 +47,7 @@ const ThresholdManagement: React.FC = () => {
   const [filterSemester, setFilterSemester] = useState<string>('all');
   const [editingThresholdId, setEditingThresholdId] = useState<number | null>(null);
   const [editingThreshold, setEditingThreshold] = useState<ThresholdMapping | null>(null);
+  const [isSavingThresholds, setIsSavingThresholds] = useState(false);
 
   useEffect(() => {
     loadInitialData();
@@ -114,7 +116,11 @@ const ThresholdManagement: React.FC = () => {
       const params = semester ? { semester } : {};
       const response = await thresholdAPI.getThresholdMappings(params);
       if (response.success) {
-        setThresholds(response.thresholds || []);
+        const normalizedThresholds = (response.thresholds || []).map((threshold: ThresholdMapping) => ({
+          ...threshold,
+          department_id: threshold.department_id ?? threshold.department,
+        }));
+        setThresholds(normalizedThresholds);
       }
     } catch (error: any) {
       console.error('Error loading thresholds:', error);
@@ -131,11 +137,12 @@ const ThresholdManagement: React.FC = () => {
   };
 
   const handleEditThreshold = (threshold: ThresholdMapping) => {
+    const departmentId = threshold.department_id ?? threshold.department;
     setEditingThreshold(threshold);
     setEditingThresholdId(threshold.id);
     setSelectedSemester(threshold.semester);
     setMappings([{
-      department_id: threshold.department_id,
+      department_id: departmentId,
       threshold: threshold.min_threshold_mark,
       seat_limit: threshold.seat_limit
     }]);
@@ -177,6 +184,7 @@ const ThresholdManagement: React.FC = () => {
       return;
     }
 
+    setIsSavingThresholds(true);
     try {
       const data = {
         semester: selectedSemester,
@@ -191,11 +199,15 @@ const ThresholdManagement: React.FC = () => {
       if (response.success) {
         toast.success(response.message || 'Threshold mappings saved successfully');
         setIsDialogOpen(false);
-        loadThresholds();
+        setEditingThresholdId(null);
+        setEditingThreshold(null);
+        await loadThresholds(filterSemester && filterSemester !== 'all' ? filterSemester : undefined);
       }
     } catch (error: any) {
       console.error('Error saving thresholds:', error);
       toast.error(error.message || 'Failed to save threshold mappings');
+    } finally {
+      setIsSavingThresholds(false);
     }
   };
 
@@ -433,7 +445,13 @@ const ThresholdManagement: React.FC = () => {
                 */}
               </div>
 
-              {mappings.map((mapping, index) => (
+              {mappings.map((mapping, index) => {
+                const selectedDepartment = departments.find((dept) => dept.id === mapping.department_id);
+                const selectedDepartmentLabel = selectedDepartment
+                  ? `${selectedDepartment.department_shortname} - ${selectedDepartment.department_name}`
+                  : '';
+
+                return (
                 <Card key={index} className="p-4 border-l-4 border-l-blue-400">
                   <div className="space-y-3">
                     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_160px_160px] lg:items-end">
@@ -443,13 +461,21 @@ const ThresholdManagement: React.FC = () => {
                           value={mapping.department_id > 0 ? mapping.department_id.toString() : ''}
                           onValueChange={(value) => handleMappingChange(index, 'department_id', parseInt(value))}
                         >
-                          <SelectTrigger id={`dept-${index}`} className="w-full min-w-0 h-9">
-                            <SelectValue placeholder="Select department" className="truncate" />
+                          <SelectTrigger
+                            id={`dept-${index}`}
+                            className="w-full min-w-0 overflow-hidden h-9 [&>span:first-child]:min-w-0 [&>span:first-child]:truncate"
+                            title={selectedDepartmentLabel}
+                          >
+                            <SelectValue placeholder="Select department" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-w-[min(90vw,28rem)]">
                             {departments.map((dept) => (
-                              <SelectItem key={dept.id} value={dept.id.toString()}>
-                                <span className="block max-w-[20rem] truncate" title={`${dept.department_shortname} - ${dept.department_name}`}>
+                              <SelectItem
+                                key={dept.id}
+                                value={dept.id.toString()}
+                                className="max-w-[min(90vw,28rem)] overflow-hidden"
+                              >
+                                <span className="block min-w-0 max-w-full truncate" title={`${dept.department_shortname} - ${dept.department_name}`}>
                                   {dept.department_shortname} - {dept.department_name}
                                 </span>
                               </SelectItem>
@@ -500,20 +526,28 @@ const ThresholdManagement: React.FC = () => {
                     )}
                   </div>
                 </Card>
-              ))}
+                );
+              })}
             </div>
 
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSavingThresholds}>
                 Cancel
               </Button>
               <Button
                 onClick={handleSubmit}
                 className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF]"
-                disabled={!selectedSemester}
+                disabled={!selectedSemester || isSavingThresholds}
               >
-                Save Thresholds
+                {isSavingThresholds ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Thresholds'
+                )}
               </Button>
             </div>
           </div>

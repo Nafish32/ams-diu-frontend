@@ -13,6 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { Link } from "react-router-dom";
 
 import { SemesterCombobox } from "../components/SemesterCombobox";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -76,6 +77,7 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
   const [activeTab, setActiveTab] = useState<keyof typeof TAB_TO_STATUS>("selected");
   const [results, setResults] = useState<AdmissionResult[]>([]);
   const [summary, setSummary] = useState(DEFAULT_SUMMARY);
+  const [configurationMissing, setConfigurationMissing] = useState(false);
   const [examRecords, setExamRecords] = useState<ExamLookupRecord[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
   const [topCandidateCount, setTopCandidateCount] = useState("");
@@ -96,8 +98,19 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
     let isMounted = true;
 
     const loadSemesterOptions = async () => {
+      if (!department?.id) {
+        setSemesterOptions([]);
+        setSelectedSemester("");
+        setResults([]);
+        setSummary(DEFAULT_SUMMARY);
+        setConfigurationMissing(false);
+        return;
+      }
+
       try {
-        const response = await admissionResultsAPI.getSemesterOptions();
+        const response = await admissionResultsAPI.getSemesterOptions({
+          department_id: department.id,
+        });
         const semesters = response?.semesters || [];
 
         if (!isMounted) {
@@ -105,12 +118,21 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
         }
 
         setSemesterOptions(semesters);
-        if (!selectedSemester && semesters.length > 0) {
-          setSelectedSemester(semesters[0]);
-        }
+        setSelectedSemester((currentSemester) => {
+          if (currentSemester && semesters.includes(currentSemester)) {
+            return currentSemester;
+          }
+
+          return semesters[0] || "";
+        });
       } catch (semesterError: any) {
         if (isMounted) {
           toast.error(semesterError?.message || "Failed to load semester options");
+          setSemesterOptions([]);
+          setSelectedSemester("");
+          setResults([]);
+          setSummary(DEFAULT_SUMMARY);
+          setConfigurationMissing(false);
         }
       }
     };
@@ -136,12 +158,20 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
     return () => {
       isMounted = false;
     };
-  }, [hasReadAccess, selectedSemester]);
+  }, [hasReadAccess, department?.id]);
+
+  useEffect(() => {
+    setResults([]);
+    setSummary(DEFAULT_SUMMARY);
+    setConfigurationMissing(false);
+    setSelectedStudentIds([]);
+  }, [department?.id, selectedSemester]);
 
   useEffect(() => {
     if (!hasReadAccess || !department?.id || !selectedSemester) {
       setResults([]);
       setSummary(DEFAULT_SUMMARY);
+      setConfigurationMissing(false);
       return;
     }
 
@@ -159,12 +189,15 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
           return;
         }
 
+        const isConfigMissing = Boolean(response?.configuration_missing);
         startTransition(() => {
-          setResults(response?.results || []);
-          setSummary({
+          setConfigurationMissing(isConfigMissing);
+          setResults(isConfigMissing ? [] : response?.results || []);
+          setSummary(isConfigMissing ? DEFAULT_SUMMARY : {
             ...DEFAULT_SUMMARY,
             ...(response?.summary || {}),
           });
+          setSelectedStudentIds([]);
         });
       } catch (resultError: any) {
         if (!isMounted) {
@@ -175,6 +208,7 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
         toast.error(resultError?.message || "Failed to load accepted students");
         setResults([]);
         setSummary(DEFAULT_SUMMARY);
+        setConfigurationMissing(false);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -197,7 +231,7 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
     selectedStudentIds.includes(result.student),
   );
   const canRevertCurrentTab =
-    hasWriteAccess && (activeTab === "selected" || activeTab === "rejected");
+    !configurationMissing && hasWriteAccess && (activeTab === "selected" || activeTab === "rejected");
   const parsedTopCandidateCount = useMemo(() => {
     if (topCandidateCount.trim() === "") {
       return null;
@@ -222,7 +256,7 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
   });
 
   const exportPdf = async () => {
-    if (!department || !selectedSemester || visibleRows.length === 0) {
+    if (configurationMissing || !department || !selectedSemester || visibleRows.length === 0) {
       return;
     }
 
@@ -235,7 +269,6 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
         format: "a4",
       });
 
-      const pageWidth = doc.internal.pageSize.getWidth();
       const marginX = 26;
       const tableTop = 190;
       const reportDate = formatReportDate();
@@ -339,6 +372,10 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
 
   const refreshResults = async () => {
     if (!department?.id || !selectedSemester) {
+      setResults([]);
+      setSummary(DEFAULT_SUMMARY);
+      setConfigurationMissing(false);
+      setSelectedStudentIds([]);
       return;
     }
 
@@ -349,8 +386,10 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
         semester: selectedSemester,
       });
 
-      setResults(response?.results || []);
-      setSummary({
+      const isConfigMissing = Boolean(response?.configuration_missing);
+      setConfigurationMissing(isConfigMissing);
+      setResults(isConfigMissing ? [] : response?.results || []);
+      setSummary(isConfigMissing ? DEFAULT_SUMMARY : {
         ...DEFAULT_SUMMARY,
         ...(response?.summary || {}),
       });
@@ -358,6 +397,10 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
     } catch (refreshError: any) {
       console.error("Error refreshing accepted students:", refreshError);
       toast.error(refreshError?.message || "Failed to refresh accepted students");
+      setResults([]);
+      setSummary(DEFAULT_SUMMARY);
+      setConfigurationMissing(false);
+      setSelectedStudentIds([]);
     } finally {
       setIsLoading(false);
     }
@@ -547,7 +590,7 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
             <Button
               variant="outline"
               onClick={refreshResults}
-              disabled={isLoading || !department || !selectedSemester}
+              disabled={isDepartmentLoading || isLoading || !department || !selectedSemester}
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -559,7 +602,7 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
 
             <Button
               onClick={exportPdf}
-              disabled={!selectedSemester || visibleRows.length === 0 || isExporting}
+              disabled={configurationMissing || !selectedSemester || visibleRows.length === 0 || isExporting}
               className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF] hover:from-[#23257a] hover:to-[#4046a8]"
             >
               {isExporting ? (
@@ -592,216 +635,230 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm font-medium text-gray-600">Selected</p>
-            <p className="text-2xl font-bold text-green-600">{summary.SELECTED}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm font-medium text-gray-600">Waiting</p>
-            <p className="text-2xl font-bold text-amber-600">{summary.WAITING}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm font-medium text-gray-600">Rejected</p>
-            <p className="text-2xl font-bold text-rose-600">{summary.REJECTED}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm font-medium text-gray-600">Absent</p>
-            <p className="text-2xl font-bold text-slate-600">{summary.ABSENT}</p>
-          </CardContent>
-        </Card>
-      </div>
+      {configurationMissing ? (
+        <Alert className="border-amber-200 bg-amber-50">
+          <AlertTriangle className="w-4 h-4 text-amber-600" />
+          <AlertDescription className="flex flex-wrap items-center gap-3 text-amber-900">
+            <span>Threshold or seat limit is not set for this semester. Please enter these values to proceed.</span>
+            <Button asChild size="sm" variant="outline" className="border-amber-200 text-amber-900">
+              <Link to="/student-acceptance-criteria">Set admission criteria</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm font-medium text-gray-600">Selected</p>
+                <p className="text-2xl font-bold text-green-600">{summary.SELECTED}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm font-medium text-gray-600">Waiting</p>
+                <p className="text-2xl font-bold text-amber-600">{summary.WAITING}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm font-medium text-gray-600">Rejected</p>
+                <p className="text-2xl font-bold text-rose-600">{summary.REJECTED}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-sm font-medium text-gray-600">Absent</p>
+                <p className="text-2xl font-bold text-slate-600">{summary.ABSENT}</p>
+              </CardContent>
+            </Card>
+          </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap items-center gap-3">
-              <span>Semester Result Sheet</span>
-              {canRevertCurrentTab ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="top-candidate-count"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={topCandidateCount}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      if (/^\d*$/.test(value)) {
-                        setTopCandidateCount(value);
-                      }
-                    }}
-                    placeholder="e.g. 20"
-                    className="w-24 h-8"
-                  />
-                </div>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              {department && (
-                <Badge variant="outline">
-                  {department.department_shortname}
-                </Badge>
-              )}
-              {selectedSemester && (
-                <Badge variant="secondary">{formatSemesterLabel(selectedSemester)}</Badge>
-              )}
-              <Badge variant="outline">Faculty of {facultyName}</Badge>
-              <Badge variant="outline">{PRETTY_STATUS_LABELS[TAB_TO_STATUS[activeTab]]}</Badge>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as keyof typeof TAB_TO_STATUS)}>
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
-              <TabsTrigger value="selected">Selected ({summary.SELECTED})</TabsTrigger>
-              <TabsTrigger value="rejected">Rejected ({summary.REJECTED})</TabsTrigger>
-              <TabsTrigger value="waiting">Waiting ({summary.WAITING})</TabsTrigger>
-              <TabsTrigger value="absent">Absent ({summary.ABSENT})</TabsTrigger>
-            </TabsList>
-
-            {Object.entries(TAB_TO_STATUS).map(([tabKey]) => (
-              <TabsContent key={tabKey} value={tabKey} className="mt-4">
-                {isDepartmentLoading || isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="text-center">
-                      <Loader2 className="w-8 h-8 mx-auto mb-4 text-blue-600 animate-spin" />
-                      <p className="text-gray-600">Loading student results...</p>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span>Semester Result Sheet</span>
+                  {canRevertCurrentTab ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="top-candidate-count"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={topCandidateCount}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          if (/^\d*$/.test(value)) {
+                            setTopCandidateCount(value);
+                          }
+                        }}
+                        placeholder="e.g. 20"
+                        className="w-24 h-8"
+                      />
                     </div>
-                  </div>
-                ) : !selectedSemester ? (
-                  <div className="py-12 text-center text-gray-500">
-                    Select a semester to load results.
-                  </div>
-                ) : visibleRows.length === 0 ? (
-                  <div className="py-12 text-center text-gray-500">
-                    No {tabKey} students found for this semester.
-                  </div>
-                ) : (
-                  <div className="overflow-hidden border rounded-md">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {canRevertCurrentTab ? (
-                            <TableHead className="w-12">
-                              <Checkbox
-                                checked={allSelectedVisible}
-                                onCheckedChange={(checked) =>
-                                  handleToggleAllSelected(Boolean(checked))
-                                }
-                                disabled={visibleResults.length === 0}
-                                aria-label="Select all visible candidates"
-                              />
-                            </TableHead>
-                          ) : null}
-                          <TableHead>SL</TableHead>
-                          <TableHead>Application Serial</TableHead>
-                          <TableHead>Student Name</TableHead>
-                          <TableHead>SSC</TableHead>
-                          <TableHead>HSC / Diploma</TableHead>
-                          <TableHead>Written</TableHead>
-                          <TableHead>Viva</TableHead>
-                          <TableHead>Written + Viva</TableHead>
-                          <TableHead>Total</TableHead>
-                          <TableHead>Remarks</TableHead>
-                          <TableHead className="text-center">View</TableHead>
-                          <TableHead className="text-center">Download</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {visibleResults.map((result, index) => {
-                          const row = visibleRows[index];
-                          const isChecked = selectedStudentIds.includes(result.student);
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  {department && (
+                    <Badge variant="outline">
+                      {department.department_shortname}
+                    </Badge>
+                  )}
+                  {selectedSemester && (
+                    <Badge variant="secondary">{formatSemesterLabel(selectedSemester)}</Badge>
+                  )}
+                  <Badge variant="outline">Faculty of {facultyName}</Badge>
+                  <Badge variant="outline">{PRETTY_STATUS_LABELS[TAB_TO_STATUS[activeTab]]}</Badge>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as keyof typeof TAB_TO_STATUS)}>
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+                  <TabsTrigger value="selected">Selected ({summary.SELECTED})</TabsTrigger>
+                  <TabsTrigger value="rejected">Rejected ({summary.REJECTED})</TabsTrigger>
+                  <TabsTrigger value="waiting">Waiting ({summary.WAITING})</TabsTrigger>
+                  <TabsTrigger value="absent">Absent ({summary.ABSENT})</TabsTrigger>
+                </TabsList>
 
-                          return (
-                            <TableRow key={row.id}>
+                {Object.entries(TAB_TO_STATUS).map(([tabKey]) => (
+                  <TabsContent key={tabKey} value={tabKey} className="mt-4">
+                    {isDepartmentLoading || isLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="text-center">
+                          <Loader2 className="w-8 h-8 mx-auto mb-4 text-blue-600 animate-spin" />
+                          <p className="text-gray-600">Loading student results...</p>
+                        </div>
+                      </div>
+                    ) : !selectedSemester ? (
+                      <div className="py-12 text-center text-gray-500">
+                        Select a semester to load results.
+                      </div>
+                    ) : visibleRows.length === 0 ? (
+                      <div className="py-12 text-center text-gray-500">
+                        No {tabKey} students found for this semester.
+                      </div>
+                    ) : (
+                      <div className="overflow-hidden border rounded-md">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
                               {canRevertCurrentTab ? (
-                                <TableCell>
+                                <TableHead className="w-12">
                                   <Checkbox
-                                    checked={isChecked}
+                                    checked={allSelectedVisible}
                                     onCheckedChange={(checked) =>
-                                      handleToggleStudent(result.student, Boolean(checked))
+                                      handleToggleAllSelected(Boolean(checked))
                                     }
-                                    aria-label={`Select ${row.studentName}`}
+                                    disabled={visibleResults.length === 0}
+                                    aria-label="Select all visible candidates"
                                   />
-                                </TableCell>
+                                </TableHead>
                               ) : null}
-                              <TableCell>{index + 1}</TableCell>
-                              <TableCell className="font-medium">{row.applicationSerial}</TableCell>
-                              <TableCell>
-                                <div>
-                                  <p className="font-medium text-gray-900">{row.studentName}</p>
-                                  {row.username ? (
-                                    <p className="text-sm text-gray-500">@{row.username}</p>
-                                  ) : null}
-                                </div>
-                              </TableCell>
-                              <TableCell>{row.ssc}</TableCell>
-                              <TableCell>{row.academic}</TableCell>
-                              <TableCell>{row.written}</TableCell>
-                              <TableCell>{row.viva}</TableCell>
-                              <TableCell>{row.writtenViva}</TableCell>
-                              <TableCell className="font-semibold">{row.total}</TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant="outline"
-                                  className={getResultStatusBadgeClass(TAB_TO_STATUS[tabKey as keyof typeof TAB_TO_STATUS])}
-                                >
-                                  {row.remarks}
-                                </Badge>
-                                {result.result_status === "SELECTED" && !result.attended_exam ? (
-                                  <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                    Manual override for absent candidate
-                                  </div>
-                                ) : null}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenReport(result)}
-                                  aria-label={`View report for ${row.studentName}`}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDownloadReport(result)}
-                                  disabled={downloadingReportId === result.id}
-                                  aria-label={`Download report for ${row.studentName}`}
-                                >
-                                  {downloadingReportId === result.id ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : (
-                                    <Download className="w-4 h-4" />
-                                  )}
-                                </Button>
-                              </TableCell>
+                              <TableHead>SL</TableHead>
+                              <TableHead>Application Serial</TableHead>
+                              <TableHead>Student Name</TableHead>
+                              <TableHead>SSC</TableHead>
+                              <TableHead>HSC / Diploma</TableHead>
+                              <TableHead>Written</TableHead>
+                              <TableHead>Viva</TableHead>
+                              <TableHead>Written + Viva</TableHead>
+                              <TableHead>Total</TableHead>
+                              <TableHead>Remarks</TableHead>
+                              <TableHead className="text-center">View</TableHead>
+                              <TableHead className="text-center">Download</TableHead>
                             </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </TabsContent>
-            ))}
-          </Tabs>
-        </CardContent>
-      </Card>
+                          </TableHeader>
+                          <TableBody>
+                            {visibleResults.map((result, index) => {
+                              const row = visibleRows[index];
+                              const isChecked = selectedStudentIds.includes(result.student);
+
+                              return (
+                                <TableRow key={row.id}>
+                                  {canRevertCurrentTab ? (
+                                    <TableCell>
+                                      <Checkbox
+                                        checked={isChecked}
+                                        onCheckedChange={(checked) =>
+                                          handleToggleStudent(result.student, Boolean(checked))
+                                        }
+                                        aria-label={`Select ${row.studentName}`}
+                                      />
+                                    </TableCell>
+                                  ) : null}
+                                  <TableCell>{index + 1}</TableCell>
+                                  <TableCell className="font-medium">{row.applicationSerial}</TableCell>
+                                  <TableCell>
+                                    <div>
+                                      <p className="font-medium text-gray-900">{row.studentName}</p>
+                                      {row.username ? (
+                                        <p className="text-sm text-gray-500">@{row.username}</p>
+                                      ) : null}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>{row.ssc}</TableCell>
+                                  <TableCell>{row.academic}</TableCell>
+                                  <TableCell>{row.written}</TableCell>
+                                  <TableCell>{row.viva}</TableCell>
+                                  <TableCell>{row.writtenViva}</TableCell>
+                                  <TableCell className="font-semibold">{row.total}</TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      variant="outline"
+                                      className={getResultStatusBadgeClass(TAB_TO_STATUS[tabKey as keyof typeof TAB_TO_STATUS])}
+                                    >
+                                      {row.remarks}
+                                    </Badge>
+                                    {result.result_status === "SELECTED" && !result.attended_exam ? (
+                                      <div className="flex items-center gap-1 mt-1 text-xs text-slate-500">
+                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                        Manual override for absent candidate
+                                      </div>
+                                    ) : null}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleOpenReport(result)}
+                                      aria-label={`View report for ${row.studentName}`}
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </Button>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDownloadReport(result)}
+                                      disabled={downloadingReportId === result.id}
+                                      aria-label={`Download report for ${row.studentName}`}
+                                    >
+                                      {downloadingReportId === result.id ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <Download className="w-4 h-4" />
+                                      )}
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <StudentAdmissionReportDialog
         open={isReportDialogOpen}
@@ -813,3 +870,5 @@ export function AcceptedStudents({ gradientClass = "" }: AcceptedStudentsProps) 
     </div>
   );
 }
+
+export default AcceptedStudents;
