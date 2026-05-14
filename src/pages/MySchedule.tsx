@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Calendar, Clock, BookOpen, Building, RefreshCw, FileSearch, User } from 'lucide-react';
+import { Calendar, Clock, BookOpen, Building, RefreshCw, FileSearch, User, Users } from 'lucide-react';
 import { studentAssignmentAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import { ScheduleStudentsDialog, type ScheduleStudentRow } from '../components/ScheduleStudentsDialog';
 
 interface ExamDetails {
   id: number;
@@ -31,6 +32,27 @@ interface ExamScheduleItem {
   end_time: string;
   is_active: boolean;
   created_at: string;
+}
+
+interface WrittenAssignmentItem {
+  id: number;
+  student: number;
+  teacher: number;
+  exam: number;
+  schedule: number;
+  created_at: string;
+  student_username: string;
+  student_full_name: string;
+  student_f_id: string;
+  student_registration_semester: string;
+  student_department_shortname?: string;
+  student_email?: string;
+  teacher_username: string;
+  exam_department: string;
+  exam_semester: string;
+  schedule_start_time: string;
+  schedule_end_time: string;
+  schedule_is_active: boolean;
 }
 
 interface VivaExamDetails {
@@ -69,6 +91,20 @@ interface VivaScheduleItem {
   updated_at: string;
 }
 
+interface VivaScheduleGroup {
+  id: string;
+  scheduled_at: string | null;
+  time: string | null;
+  room: string;
+  total_marks: number;
+  exam: number;
+  exam_name: string;
+  exam_details: VivaExamDetails;
+  students: VivaScheduleItem[];
+  count: number;
+  remarks?: string | null;
+}
+
 interface TeacherScheduleResponse {
   success: boolean;
   teacher: {
@@ -78,18 +114,25 @@ interface TeacherScheduleResponse {
   };
   exam_count: number;
   viva_count: number;
+  viva_group_count?: number;
   count: number;
   exam_schedules: ExamScheduleItem[];
-  viva_schedules: VivaScheduleItem[];
+  viva_schedules: VivaScheduleGroup[];
   message: string;
 }
 
 const MySchedule: React.FC = () => {
   const { user } = useAuth();
   const [examSchedules, setExamSchedules] = useState<ExamScheduleItem[]>([]);
-  const [vivaSchedules, setVivaSchedules] = useState<VivaScheduleItem[]>([]);
+  const [vivaSchedules, setVivaSchedules] = useState<VivaScheduleGroup[]>([]);
+  const [writtenAssignments, setWrittenAssignments] = useState<WrittenAssignmentItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filterDate, setFilterDate] = useState<string>('all');
+  const [studentsDialogOpen, setStudentsDialogOpen] = useState(false);
+  const [studentsDialogTitle, setStudentsDialogTitle] = useState('');
+  const [studentsDialogDescription, setStudentsDialogDescription] = useState('');
+  const [studentsDialogEmptyMessage, setStudentsDialogEmptyMessage] = useState('');
+  const [studentsDialogRows, setStudentsDialogRows] = useState<ScheduleStudentRow[]>([]);
 
   useEffect(() => {
     if (user?.id) {
@@ -105,16 +148,45 @@ const MySchedule: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const response: TeacherScheduleResponse = await studentAssignmentAPI.getTeacherSchedule(user.id);
-      if (response.success) {
-        setExamSchedules(response.exam_schedules || []);
-        setVivaSchedules(response.viva_schedules || []);
+      const [scheduleResult, assignmentsResult] = await Promise.allSettled([
+        studentAssignmentAPI.getTeacherSchedule(user.id),
+        studentAssignmentAPI.getAssignmentsByTeacher(user.id),
+      ]);
+
+      if (scheduleResult.status === 'fulfilled') {
+        const response: TeacherScheduleResponse = scheduleResult.value;
+        if (response.success) {
+          setExamSchedules(response.exam_schedules || []);
+          setVivaSchedules(response.viva_schedules || []);
+        } else {
+          setExamSchedules([]);
+          setVivaSchedules([]);
+          toast.error(response.message || 'Failed to load schedule');
+        }
+      } else {
+        console.error('Error loading schedule:', scheduleResult.reason);
+        toast.error(scheduleResult.reason?.message || 'Failed to load schedule');
+        setExamSchedules([]);
+        setVivaSchedules([]);
+      }
+
+      if (assignmentsResult.status === 'fulfilled') {
+        const response = assignmentsResult.value;
+        if (response.success) {
+          setWrittenAssignments(response.data || []);
+        } else {
+          setWrittenAssignments([]);
+        }
+      } else {
+        console.error('Error loading written assignments:', assignmentsResult.reason);
+        setWrittenAssignments([]);
       }
     } catch (error: any) {
-      console.error('Error loading schedule:', error);
+      console.error('Unexpected error loading schedule:', error);
       toast.error(error.message || 'Failed to load schedule');
       setExamSchedules([]);
       setVivaSchedules([]);
+      setWrittenAssignments([]);
     } finally {
       setIsLoading(false);
     }
@@ -162,19 +234,71 @@ const MySchedule: React.FC = () => {
     return examSchedules;
   };
 
-  const getFilteredVivaSchedules = (): VivaScheduleItem[] => {
-    if (filterDate === 'today') {
-      return vivaSchedules.filter(schedule => isTodaySchedule(schedule.scheduled_at));
-    }
-    return vivaSchedules;
+  const filteredExamSchedules = getFilteredExamSchedules();
+  const filteredVivaSchedules = filterDate === 'today'
+    ? vivaSchedules.filter(schedule => isTodaySchedule(schedule.scheduled_at))
+    : vivaSchedules;
+
+  const openStudentDialog = (
+    title: string,
+    description: string,
+    rows: ScheduleStudentRow[],
+    emptyMessage: string,
+  ) => {
+    setStudentsDialogTitle(title);
+    setStudentsDialogDescription(description);
+    setStudentsDialogRows(rows);
+    setStudentsDialogEmptyMessage(emptyMessage);
+    setStudentsDialogOpen(true);
   };
 
-  const filteredExamSchedules = getFilteredExamSchedules();
-  const filteredVivaSchedules = getFilteredVivaSchedules();
+  const getWrittenStudentsForSchedule = (scheduleId: number): ScheduleStudentRow[] => {
+    return writtenAssignments
+      .filter((assignment) => assignment.schedule === scheduleId)
+      .map((assignment) => ({
+        id: assignment.id,
+        fullName: assignment.student_full_name || assignment.student_username,
+        username: assignment.student_username,
+        formId: assignment.student_f_id,
+        departmentShortname: assignment.student_department_shortname,
+        registrationSemester: assignment.student_registration_semester,
+      }));
+  };
+
+  const openWrittenStudents = (schedule: ExamScheduleItem) => {
+    const rows = getWrittenStudentsForSchedule(schedule.id);
+    openStudentDialog(
+      `${schedule.exam_name} - Students`,
+      `Students assigned to ${schedule.exam_details.department} • ${schedule.exam_details.semester}`,
+      rows,
+      'No students are currently assigned to this written exam schedule.',
+    );
+  };
+
+  const openVivaStudents = (schedule: VivaScheduleGroup) => {
+    const rows = schedule.students.map((student) => ({
+      id: student.id,
+      fullName: student.student_name || student.student_username,
+      username: student.student_username,
+      formId: student.student_f_id,
+      departmentShortname: student.exam_details?.department_shortnames?.[0] || student.exam_details?.department || null,
+      registrationSemester: student.exam_details?.semester || null,
+      examName: student.exam_name,
+    }));
+
+    openStudentDialog(
+      `${schedule.exam_name} - Viva Students`,
+      schedule.scheduled_at
+        ? `Viva time slot: ${formatDate(schedule.scheduled_at)} at ${formatTime(schedule.scheduled_at)}`
+        : 'This viva slot is not scheduled yet.',
+      rows,
+      'No students are currently assigned to this viva time slot.',
+    );
+  };
 
   const formatTimeValue = (value: string | null | undefined): string => {
     if (!value) return 'N/A';
-    const parsed = new Date(value);
+    const parsed = new Date(`1970-01-01T${value}`);
     if (!Number.isNaN(parsed.getTime())) {
       return parsed.toLocaleTimeString('en-US', {
         hour: '2-digit',
@@ -235,18 +359,22 @@ const MySchedule: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex md:flex-col gap-2">
+        <div className="flex flex-col md:items-end gap-2">
           {schedule.is_active ? (
             <Badge variant="default" className="bg-green-600">Active</Badge>
           ) : (
             <Badge variant="secondary">Inactive</Badge>
           )}
+          <Button variant="outline" size="sm" onClick={() => openWrittenStudents(schedule)}>
+            <Users className="h-4 w-4 mr-2" />
+            View Students
+          </Button>
         </div>
       </div>
     </Card>
   );
 
-  const renderVivaScheduleCard = (schedule: VivaScheduleItem) => (
+  const renderVivaScheduleCard = (schedule: VivaScheduleGroup) => (
     <Card key={schedule.id} className="p-4 border-amber-200 bg-amber-50/30">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex-1 space-y-3">
@@ -258,12 +386,14 @@ const MySchedule: React.FC = () => {
               <div>
                 <h3 className="font-semibold text-gray-900 text-lg">{schedule.exam_name}</h3>
                 <p className="text-sm text-gray-600">
-                  {schedule.student_name}{schedule.student_f_id ? ` • ${schedule.student_f_id}` : ''}
+                  {schedule.count} student{schedule.count === 1 ? '' : 's'} in this viva slot
                 </p>
               </div>
             </div>
-            {schedule.scheduled_at && (
-              <Badge variant="outline" className="border-amber-300 text-amber-700 bg-white">Viva Assigned</Badge>
+            {schedule.scheduled_at ? (
+              <Badge variant="outline" className="border-amber-300 text-amber-700 bg-white">Grouped Viva Slot</Badge>
+            ) : (
+              <Badge variant="outline" className="border-gray-300 text-gray-700 bg-white">Unscheduled</Badge>
             )}
           </div>
 
@@ -285,6 +415,7 @@ const MySchedule: React.FC = () => {
             <Badge variant="outline" className="text-xs">Time: {formatTimeValue(schedule.time)}</Badge>
             <Badge variant="outline" className="text-xs">{schedule.total_marks ?? 0} Marks</Badge>
             <Badge variant="outline" className="text-xs">Room: {schedule.room || 'N/A'}</Badge>
+            <Badge variant="outline" className="text-xs">{schedule.count} Students</Badge>
             {schedule.exam_details.duration_minutes && (
               <Badge variant="outline" className="text-xs">{schedule.exam_details.duration_minutes} Minutes</Badge>
             )}
@@ -301,6 +432,13 @@ const MySchedule: React.FC = () => {
               <span className="font-medium text-gray-700">Remarks:</span> {schedule.remarks}
             </p>
           )}
+        </div>
+
+        <div className="flex flex-col md:items-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => openVivaStudents(schedule)}>
+            <Users className="h-4 w-4 mr-2" />
+            View Students
+          </Button>
         </div>
       </div>
     </Card>
@@ -419,6 +557,15 @@ const MySchedule: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      <ScheduleStudentsDialog
+        open={studentsDialogOpen}
+        onOpenChange={setStudentsDialogOpen}
+        title={studentsDialogTitle}
+        description={studentsDialogDescription}
+        students={studentsDialogRows}
+        emptyMessage={studentsDialogEmptyMessage}
+      />
     </div>
   );
 };

@@ -639,44 +639,35 @@ export function Results({ gradientClass }: ResultsProps) {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border ${getPerformanceColor(selectedResult.results.score_percentage)}`}>
-                        {React.createElement(getPerformanceBadgeIcon(selectedResult.results.score_percentage), { className: "h-5 w-5" })}
-                        <div>
-                          <div className="text-lg font-bold">{formatPercentage(selectedResult.results.score_percentage)}</div>
-                          <div className="text-xs">{getPerformanceLabel(selectedResult.results.score_percentage)}</div>
+                      <div className="flex flex-wrap justify-end gap-3">
+                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border ${getPerformanceColor(selectedResult.results.score_percentage)}`}>
+                          {React.createElement(getPerformanceBadgeIcon(selectedResult.results.score_percentage), { className: "h-5 w-5" })}
+                          <div>
+                            <div className="text-lg font-bold">{formatPercentage(selectedResult.results.score_percentage)}</div>
+                            <div className="text-xs">{getPerformanceLabel(selectedResult.results.score_percentage)}</div>
+                          </div>
+                        </div>
+
+                        <div className="inline-flex items-center gap-2 px-4 py-2 border border-green-200 rounded-lg bg-green-50">
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          <div>
+                            <div className="text-lg font-bold text-green-600">{selectedResult.results.correct_answers}</div>
+                            <div className="text-xs text-green-700">Correct</div>
+                          </div>
+                        </div>
+
+                        <div className="inline-flex items-center gap-2 px-4 py-2 border border-red-200 rounded-lg bg-red-50">
+                          <XCircle className="w-5 h-5 text-red-600" />
+                          <div>
+                            <div className="text-lg font-bold text-red-600">{selectedResult.results.wrong_answers}</div>
+                            <div className="text-xs text-red-700">Incorrect</div>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Overall Performance */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <Card className="border-green-200 bg-green-50">
-                  <CardContent className="p-4 text-center">
-                    <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-600" />
-                    <div className="text-2xl font-bold text-green-600">{selectedResult.results.correct_answers}</div>
-                    <div className="text-sm text-green-700">Correct Answers</div>
-                  </CardContent>
-                </Card>
-                
-                <Card className="border-red-200 bg-red-50">
-                  <CardContent className="p-4 text-center">
-                    <XCircle className="w-8 h-8 mx-auto mb-2 text-red-600" />
-                    <div className="text-2xl font-bold text-red-600">{selectedResult.results.wrong_answers}</div>
-                    <div className="text-sm text-red-700">Wrong Answers</div>
-                  </CardContent>
-                </Card>
-                
-                <Card className="border-blue-200 bg-blue-50">
-                  <CardContent className="p-4 text-center">
-                    <TrendingUp className="w-8 h-8 mx-auto mb-2 text-blue-600" />
-                    <div className="text-2xl font-bold text-blue-600">{formatPercentage(selectedResult.results.score_percentage)}</div>
-                    <div className="text-sm text-blue-700">Overall Score</div>
-                  </CardContent>
-                </Card>
-              </div>
 
               {/* Subject-wise Performance */}
               <Card>
@@ -719,7 +710,7 @@ export function Results({ gradientClass }: ResultsProps) {
                               </div>
                               <div className="p-2 bg-red-100 rounded">
                                 <div className="font-semibold text-red-600">{subject.wrong_answers}</div>
-                                <div className="text-gray-600">Wrong</div>
+                                <div className="text-gray-600">Incorrect</div>
                               </div>
                               <div className="p-2 bg-blue-100 rounded">
                                 <div className="font-semibold text-blue-600">
