@@ -217,8 +217,8 @@ export function VivaModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[94vw] sm:max-w-[94vw] xl:max-w-[1400px] max-h-[94vh] sm:max-h-[92vh] md:max-h-[92vh] lg:max-h-[92vh] overflow-hidden flex flex-col">
-        <DialogHeader className="flex-shrink-0 pb-2 mt-1 border-b border-slate-200/80">
-          <DialogTitle className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <DialogHeader className="flex-shrink-0 pb-2 border-b border-slate-200/80 mt-1">
+          <DialogTitle className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="bg-[#2E3094]/10 p-2.5 rounded-xl">
                 <Award className="h-6 w-6 text-[#2E3094]" />
@@ -250,10 +250,10 @@ export function VivaModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col flex-1 min-h-0 gap-3 pr-1 mt-2 overflow-x-hidden overflow-y-auto lg:flex-row">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 mt-2 overflow-y-auto overflow-x-hidden pr-1">
           <div className="w-full lg:w-[300px] min-w-0 flex flex-col gap-3">
-            <Card className="overflow-hidden bg-white border shadow-sm border-slate-200 rounded-2xl">
-              <CardContent className="flex flex-col gap-6 p-6">
+            <Card className="bg-white border border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-6 flex flex-col gap-6">
                 <div className="flex items-start justify-between">
                   <div>
                     <h4 className="text-[11px] font-bold text-[#556987] uppercase tracking-wider mb-2">
@@ -274,7 +274,7 @@ export function VivaModal({
                 <div className="h-px bg-[#E5E9F5] w-full"></div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex justify-between items-center mb-3">
                     <h4 className="text-[11px] font-bold text-[#556987] uppercase tracking-wider">
                       Viva Status
                     </h4>
@@ -295,8 +295,8 @@ export function VivaModal({
                   </div>
 
                   {isVivaCompleted ? (
-                    <div className="flex items-center justify-between p-4 border bg-emerald-50/50 rounded-xl border-emerald-100">
-                      <p className="text-sm font-bold text-emerald-800">
+                    <div className="bg-emerald-50/50 rounded-xl p-4 border border-emerald-100 flex items-center justify-between">
+                      <p className="font-bold text-emerald-800 text-sm">
                         Current Marks
                       </p>
                       <div className="flex items-end gap-1">
@@ -311,8 +311,8 @@ export function VivaModal({
                       </div>
                     </div>
                   ) : (
-                    <div className="p-4 border bg-amber-50/50 rounded-xl border-amber-100">
-                      <p className="text-sm font-medium leading-relaxed text-amber-700">
+                    <div className="bg-amber-50/50 rounded-xl p-4 border border-amber-100">
+                      <p className="text-sm text-amber-700 font-medium leading-relaxed">
                         Assessment incomplete. Fill out the rubrics on the right
                         side to finalize grading.
                       </p>
@@ -322,19 +322,19 @@ export function VivaModal({
               </CardContent>
             </Card>
 
-            <Card className="flex flex-col overflow-hidden bg-white border shadow-sm border-slate-200 rounded-2xl">
-              <CardHeader className="px-5 py-4 bg-white border-b border-slate-100">
+            <Card className="flex flex-col border border-slate-200 shadow-sm rounded-2xl bg-white overflow-hidden">
+              <CardHeader className="py-4 px-5 border-b border-slate-100 bg-white">
                 <CardTitle className="text-sm font-bold flex items-center gap-2.5 text-slate-700">
                   <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-100">
-                    <MessageSquare className="w-4 h-4 text-slate-500" />
+                    <MessageSquare className="h-4 w-4 text-slate-500" />
                   </div>
                   Overall Remarks{' '}
-                  <span className="ml-1 text-xs font-medium text-slate-400">
+                  <span className="text-slate-400 font-medium text-xs ml-1">
                     (Optional)
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex flex-col flex-1 p-0">
+              <CardContent className="p-0 flex-1 flex flex-col">
                 <Textarea
                   id="remarks"
                   placeholder="Record observations, student strengths, and areas for improvement..."
@@ -400,12 +400,12 @@ export function VivaModal({
             )}
           </div>
 
-          <div className="flex flex-col w-full min-w-0 min-h-0 lg:w-2/3">
-            <Card className="flex flex-col min-h-0 overflow-hidden bg-white border shadow-sm border-slate-200 rounded-2xl">
-              <CardHeader className="flex flex-row items-center justify-between flex-shrink-0 px-6 py-5 bg-white border-b border-slate-100">
-                <CardTitle className="flex items-center gap-3 text-base font-bold text-slate-800">
+          <div className="w-full lg:w-2/3 min-w-0 flex flex-col min-h-0">
+            <Card className="flex flex-col border border-slate-200 shadow-sm rounded-2xl bg-white overflow-hidden min-h-0">
+              <CardHeader className="py-5 px-6 border-b border-slate-100 bg-white flex flex-row items-center justify-between flex-shrink-0">
+                <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-3">
                   <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-100">
-                    <ClipboardList className="w-4 h-4 text-slate-500" />
+                    <ClipboardList className="h-4 w-4 text-slate-500" />
                   </div>
                   Assessment Rubrics
                 </CardTitle>
@@ -426,16 +426,16 @@ export function VivaModal({
                 </div>
               </CardHeader>
 
-              <CardContent className="flex-1 min-h-0 p-4 overflow-y-auto">
+              <CardContent className="flex-1 min-h-0 overflow-y-auto p-4">
                 {loadingRubrics ? (
                   <div className="min-h-[320px] flex flex-col items-center justify-center text-gray-400">
-                    <Loader2 className="w-8 h-8 mb-4 text-blue-500 animate-spin" />
+                    <Loader2 className="h-8 w-8 animate-spin mb-4 text-blue-500" />
                     <p>Loading assessment rubrics...</p>
                   </div>
                 ) : rubrics.length === 0 ? (
                   <div className="min-h-[320px] flex flex-col items-center justify-center text-gray-400">
-                    <AlertTriangle className="w-10 h-10 mb-4 text-yellow-400" />
-                    <p className="font-medium text-gray-600">
+                    <AlertTriangle className="h-10 w-10 text-yellow-400 mb-4" />
+                    <p className="text-gray-600 font-medium">
                       No rubrics available
                     </p>
                     <p className="text-sm">
@@ -447,14 +447,14 @@ export function VivaModal({
                     {rubrics.map(rubric => (
                       <div
                         key={rubric.id}
-                        className="p-4 transition-all duration-200 bg-white border border-gray-200 group rounded-xl hover:border-blue-300 hover:shadow-sm"
+                        className="group border border-gray-200 rounded-xl p-4 bg-white hover:border-blue-300 hover:shadow-sm transition-all duration-200"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 mt-1">
-                            <h4 className="mb-1 text-base font-semibold leading-tight text-gray-800">
+                            <h4 className="font-semibold text-gray-800 text-base leading-tight mb-1">
                               {rubric.rubrics}
                             </h4>
-                            <p className="text-xs font-medium tracking-widest text-gray-500 uppercase">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-widest">
                               {rubric.department_shortname} Module
                             </p>
                           </div>
@@ -471,10 +471,10 @@ export function VivaModal({
                                     parseInt(e.target.value) || 0,
                                   )
                                 }
-                                className="w-20 pr-8 text-lg font-semibold text-right border-gray-300 focus-visible:ring-blue-500 h-11"
+                                className="w-20 pr-8 text-right font-semibold text-lg border-gray-300 focus-visible:ring-blue-500 h-11"
                                 placeholder="0"
                               />
-                              <div className="absolute text-sm font-medium text-gray-400 -translate-y-1/2 pointer-events-none right-3 top-1/2">
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium pointer-events-none">
                                 /{rubric.marks}
                               </div>
                             </div>
@@ -499,14 +499,14 @@ export function VivaModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end flex-shrink-0 gap-3 px-6 py-3 mt-2 bg-white border-t border-slate-200">
+        <div className="flex-shrink-0 flex items-center justify-end gap-3 px-6 py-3 border-t border-slate-200 mt-2 bg-white">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
             className="w-32 font-bold text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-800 rounded-xl h-11"
           >
-            <X className="w-4 h-4 mr-2" />
+            <X className="h-4 w-4 mr-2" />
             Cancel
           </Button>
           {rubrics.length > 0 && (
@@ -517,12 +517,12 @@ export function VivaModal({
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Saving...
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4 mr-2" />
+                  <Save className="h-4 w-4 mr-2" />
                   {isVivaCompleted ? 'Update Marks' : 'Save Marks'}
                 </>
               )}
