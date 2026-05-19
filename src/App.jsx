@@ -112,6 +112,9 @@ function ProtectedRoutes() {
         <Route path="/role-management" element={<RoleManagement />} />
         <Route path="/menu-management" element={<MenuManagement />} />
         <Route path="/menu-access-management" element={<MenuAccessManagement />} />
+        <Route path="/department-management" element={<DepartmentManagement />} />
+        <Route path="/subject-management" element={<SubjectManagement />} />
+        <Route path="/subject-department-mapping" element={<SubjectDepartmentMapping />} />
         <Route path="/student-acceptance-criteria" element={<ThresholdManagement />} />
         <Route path="/threshold-management" element={<Navigate to="/student-acceptance-criteria" replace />} />
         <Route path="/viva-rubrics-management" element={<VivaManagement />} />

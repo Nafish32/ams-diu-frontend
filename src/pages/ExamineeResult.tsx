@@ -13,7 +13,6 @@ import {
   FileCheck,
   Loader2,
   RefreshCw,
-  Save,
   Search,
   Users,
   XCircle,
@@ -43,7 +42,7 @@ import {
 import {
   buildResultSheetRows,
   getResultStatusBadgeClass,
-  isThresholdEligible,
+  isMinimumScoreEligible,
 } from "../lib/result-sheet";
 import { downloadBlobFile } from "../lib/pdf-download";
 import { admissionResultsAPI } from "../services/api";
@@ -72,14 +71,12 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
   const [filteredResults, setFilteredResults] = useState<AdmissionResult[]>([]);
   const [summary, setSummary] = useState(DEFAULT_SUMMARY);
   const [configuration, setConfiguration] = useState<AdmissionConfiguration | null>(null);
-  const [seatLimit, setSeatLimit] = useState("");
-  const [threshold, setThreshold] = useState("");
+  const [minimumScoreFilter, setMinimumScoreFilter] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "score">("score");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
@@ -91,10 +88,10 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
   const [topCandidateCount, setTopCandidateCount] = useState("");
 
   const deferredSearchTerm = useDeferredValue(searchTerm);
-  const parsedThresholdValue = useMemo(() => {
-    const thresholdValue = threshold.trim() === "" ? null : Number(threshold);
-    return thresholdValue !== null && !Number.isNaN(thresholdValue) ? thresholdValue : null;
-  }, [threshold]);
+  const parsedMinimumScoreFilter = useMemo(() => {
+    const scoreValue = minimumScoreFilter.trim() === "" ? null : Number(minimumScoreFilter);
+    return scoreValue !== null && !Number.isNaN(scoreValue) ? scoreValue : null;
+  }, [minimumScoreFilter]);
 
   const parsedTopCandidateCount = useMemo(() => {
     if (topCandidateCount.trim() === "") {
@@ -183,16 +180,6 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
         const boardResults = resultResponse?.results || [];
 
         setConfiguration(resolvedConfiguration);
-        setSeatLimit(
-          resolvedConfiguration?.seat_limit !== undefined
-            ? String(resolvedConfiguration.seat_limit)
-            : "",
-        );
-        setThreshold(
-          resolvedConfiguration?.threshold !== undefined
-            ? String(resolvedConfiguration.threshold)
-            : "",
-        );
         setSummary({
           ...DEFAULT_SUMMARY,
           ...(resultResponse?.summary || {}),
@@ -233,13 +220,13 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
     const nextFilteredResults = searchedResults.filter(
       (result) =>
         result.result_status !== "SELECTED" &&
-        isThresholdEligible(result, parsedThresholdValue),
+        isMinimumScoreEligible(result, parsedMinimumScoreFilter),
     );
 
     startTransition(() => {
       setFilteredResults(nextFilteredResults);
     });
-  }, [results, deferredSearchTerm, sortBy, sortOrder, parsedThresholdValue]);
+  }, [results, deferredSearchTerm, sortBy, sortOrder, parsedMinimumScoreFilter]);
 
   const visibleRows = buildResultSheetRows(filteredResults);
   const selectableResults = filteredResults.filter(
@@ -268,11 +255,6 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
     });
   }, [parsedTopCandidateCount, selectableResults]);
 
-  const hasConfigurationChanges =
-    configuration === null ||
-    String(configuration.seat_limit) !== seatLimit ||
-    String(configuration.threshold) !== threshold;
-
   const refreshBoard = async () => {
     if (!department?.id || !selectedSemester) {
       return;
@@ -293,16 +275,6 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
       ]);
 
       setConfiguration(configResponse?.configurations?.[0] || null);
-      setSeatLimit(
-        configResponse?.configurations?.[0]?.seat_limit !== undefined
-          ? String(configResponse.configurations[0].seat_limit)
-          : "",
-      );
-      setThreshold(
-        configResponse?.configurations?.[0]?.threshold !== undefined
-          ? String(configResponse.configurations[0].threshold)
-          : "",
-      );
       setResults(resultResponse?.results || []);
       setSummary({
         ...DEFAULT_SUMMARY,
@@ -313,54 +285,6 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
       toast.error(refreshError?.message || "Failed to refresh examinee board");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const persistConfiguration = async () => {
-    if (!department?.id || !selectedSemester) {
-      throw new Error("Department and semester are required.");
-    }
-
-    const seatLimitValue = Number(seatLimit);
-    const thresholdValue = Number(threshold);
-
-    if (Number.isNaN(seatLimitValue) || seatLimitValue < 0) {
-      throw new Error("Seat limit must be 0 or greater.");
-    }
-
-    if (Number.isNaN(thresholdValue) || thresholdValue < 0 || thresholdValue > 100) {
-      throw new Error("Threshold must be between 0 and 100.");
-    }
-
-    const payload = {
-      department_id: department.id,
-      semester: selectedSemester,
-      seat_limit: seatLimitValue,
-      threshold: thresholdValue,
-    };
-
-    const response = configuration?.id
-      ? await admissionResultsAPI.updateConfiguration(configuration.id, payload)
-      : await admissionResultsAPI.createOrUpdateConfiguration(payload);
-
-    const nextConfiguration = response?.data || response;
-    setConfiguration(nextConfiguration);
-    setSeatLimit(String(nextConfiguration.seat_limit));
-    setThreshold(String(nextConfiguration.threshold));
-    return nextConfiguration;
-  };
-
-  const handleSaveConfiguration = async () => {
-    setIsSavingConfig(true);
-    try {
-      await persistConfiguration();
-      toast.success("Admission setup saved successfully");
-      await refreshBoard();
-    } catch (configError: any) {
-      console.error("Error saving admission setup:", configError);
-      toast.error(configError?.message || "Failed to save admission setup");
-    } finally {
-      setIsSavingConfig(false);
     }
   };
 
@@ -396,16 +320,12 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
 
     setIsAccepting(true);
     try {
-      const activeConfiguration = hasConfigurationChanges
-        ? await persistConfiguration()
-        : configuration;
-
-      if (!activeConfiguration?.id) {
-        throw new Error("Admission configuration is required before accepting candidates.");
+      if (!configuration?.id) {
+        throw new Error("Set threshold and seat limit before accepting candidates.");
       }
 
       await admissionResultsAPI.bulkUpdateStatus({
-        configuration_id: activeConfiguration.id,
+        configuration_id: configuration.id,
         student_ids: selectedStudentIds,
         result_status: "SELECTED",
       });
@@ -433,16 +353,12 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
 
     setIsRejecting(true);
     try {
-      const activeConfiguration = hasConfigurationChanges
-        ? await persistConfiguration()
-        : configuration;
-
-      if (!activeConfiguration?.id) {
-        throw new Error("Admission configuration is required before rejecting candidates.");
+      if (!configuration?.id) {
+        throw new Error("Set threshold and seat limit before rejecting candidates.");
       }
 
       await admissionResultsAPI.bulkUpdateStatus({
-        configuration_id: activeConfiguration.id,
+        configuration_id: configuration.id,
         student_ids: selectedStudentIds,
         result_status: "REJECTED",
       });
@@ -547,9 +463,8 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
           Override Selection
         </h1>
         <p className="text-sm leading-relaxed text-white/90 sm:text-base">
-          Review candidates for the selected semester with optional threshold filtering.
-          If threshold is empty, all non-selected candidates are shown.
-          If threshold has any value, only totals at or above it are shown and nothing below it is included.
+          Review candidates for the selected semester with optional total mark filtering.
+          This page does not edit semester threshold or seat-limit setup.
         </p>
       </div>
 
@@ -655,50 +570,20 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_auto] gap-4 items-end">
-            {/* Seat Limit input commented out per request - keep state in place */}
-            { /*
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="seat-limit">Seat Limit</Label>
+              <Label htmlFor="minimum-score-filter">Filter by Total Mark</Label>
               <Input
-                id="seat-limit"
-                type="number"
-                min="0"
-                value={seatLimit}
-                onChange={(event) => setSeatLimit(event.target.value)}
-                placeholder="Enter available seats"
-              />
-            </div>
-            */ }
-
-            <div className="space-y-2">
-              <Label htmlFor="threshold">Threshold</Label>
-              <Input
-                id="threshold"
+                id="minimum-score-filter"
                 type="number"
                 min="0"
                 max="100"
                 step="0.01"
-                value={threshold}
-                onChange={(event) => setThreshold(event.target.value)}
-                placeholder="Enter threshold"
+                value={minimumScoreFilter}
+                onChange={(event) => setMinimumScoreFilter(event.target.value)}
+                placeholder="Minimum total mark"
               />
             </div>
-
-            {hasWriteAccess && (
-              <Button
-                onClick={handleSaveConfiguration}
-                disabled={!department || !selectedSemester || isSavingConfig}
-                className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700"
-              >
-                {isSavingConfig ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Save Setup
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -734,18 +619,25 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
 
       {!configuration && selectedSemester && (
         <Alert className="border-blue-200 bg-blue-50">
-          <AlertDescription className="text-blue-900">
-            No saved admission setup exists for {formatSemesterLabel(selectedSemester)} yet.
-            Enter the seat limit and threshold, then click <strong>Save Setup</strong>.
+          <AlertDescription className="flex flex-col gap-3 text-blue-900 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              No saved admission setup exists for {formatSemesterLabel(selectedSemester)} yet.
+              Set threshold and seat limit before accepting or rejecting candidates.
+            </span>
+            <a
+              href="/student-acceptance-criteria"
+              className="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Set Criteria
+            </a>
           </AlertDescription>
         </Alert>
       )}
 
       <Alert className="border-slate-200 bg-slate-50">
         <AlertDescription className="text-slate-700">
-          Threshold behavior: empty threshold shows all non-selected candidates.
-          Any numeric threshold applies a strict marks filter, so only candidates with totals
-          greater than or equal to that threshold are shown.
+          Filter behavior: an empty total mark filter shows all non-selected candidates.
+          Any number filters the board to candidates with totals greater than or equal to that value.
         </AlertDescription>
       </Alert>
 
@@ -791,6 +683,7 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
                   disabled={
                     !department ||
                     !selectedSemester ||
+                    !configuration?.id ||
                     selectedStudentIds.length === 0 ||
                     isAccepting ||
                     isRejecting
@@ -811,6 +704,7 @@ export function ExamineeResult({ gradientClass = "" }: ExamineeResultProps) {
                   disabled={
                     !department ||
                     !selectedSemester ||
+                    !configuration?.id ||
                     selectedStudentIds.length === 0 ||
                     isRejecting ||
                     isAccepting

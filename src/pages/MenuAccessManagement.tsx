@@ -7,8 +7,9 @@ import { Checkbox } from '../components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Separator } from '../components/ui/separator';
 import { roleAPI, menuAPI } from '../services/api';
+import { usePermissions } from '../hooks/usePermissions';
 import toast from 'react-hot-toast';
-import { Key, Shield, Menu, Plus, Trash2, Eye, Edit, Trash, FileEdit, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Key, Shield, Menu, Plus, Trash2, Eye, Edit, Trash, FileEdit, RefreshCw } from 'lucide-react';
 
 interface Role {
   id: number;
@@ -45,6 +46,7 @@ interface RoleMenusResponse {
 }
 
 export function MenuAccessManagement() {
+  const { canRead, canWrite, canDelete } = usePermissions();
   const [roles, setRoles] = useState<Role[]>([]);
   const [allMenus, setAllMenus] = useState<Menu[]>([]);
   const [selectedRole, setSelectedRole] = useState<number | null>(null);
@@ -54,8 +56,10 @@ export function MenuAccessManagement() {
 
   // Load roles and menus on component mount
   useEffect(() => {
-    loadRoles();
-    loadAllMenus();
+    if (canRead()) {
+      loadRoles();
+      loadAllMenus();
+    }
   }, []);
 
   // Load role menus when role is selected
@@ -183,6 +187,11 @@ export function MenuAccessManagement() {
   const handleAssignMenu = async (menuId: number, permissions: any) => {
     if (!selectedRole) return;
 
+    if (!canWrite()) {
+      toast.error('You do not have permission to assign menu access');
+      return;
+    }
+
     try {
       setIsAssigning(true);
       const menuAssignments = [
@@ -206,6 +215,11 @@ export function MenuAccessManagement() {
 
   const handleRemoveMenu = async (menuId: number) => {
     if (!selectedRole) return;
+
+    if (!canDelete()) {
+      toast.error('You do not have permission to remove menu access');
+      return;
+    }
 
     try {
       await menuAPI.removeMenuFromRole(selectedRole, menuId);
@@ -236,6 +250,18 @@ export function MenuAccessManagement() {
     return roleMenu?.permissions || { read: false, write: false, edit: false, delete: false };
   };
 
+  if (!canRead()) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+          <h3 className="mb-2 text-lg font-semibold text-gray-800">Access Denied</h3>
+          <p className="text-gray-600">You don't have permission to access this page.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -250,6 +276,15 @@ export function MenuAccessManagement() {
       </div>
 
       {/* Role Selection */}
+      {!canWrite() && !canDelete() && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            You can view menu access, but you do not have permission to grant or remove access.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -344,20 +379,24 @@ export function MenuAccessManagement() {
                           )}
                         </div>
                         {assigned ? (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleRemoveMenu(menu.id)}
-                          >
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Remove Access
-                          </Button>
+                          canDelete() && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleRemoveMenu(menu.id)}
+                            >
+                              <Trash2 className="w-3 h-3 mr-1" />
+                              Remove Access
+                            </Button>
+                          )
                         ) : (
-                          <MenuAccessForm
-                            menuId={menu.id}
-                            onAssign={handleAssignMenu}
-                            isAssigning={isAssigning}
-                          />
+                          canWrite() && (
+                            <MenuAccessForm
+                              menuId={menu.id}
+                              onAssign={handleAssignMenu}
+                              isAssigning={isAssigning}
+                            />
+                          )
                         )}
                       </div>
 
@@ -421,14 +460,16 @@ export function MenuAccessManagement() {
                     <div key={roleMenu.menu_id} className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-medium">{roleMenu.menu_title}</span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleRemoveMenu(roleMenu.menu_id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                        {canDelete() && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleRemoveMenu(roleMenu.menu_id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         {Object.entries(roleMenu.permissions).map(([permission, enabled]) => (
@@ -446,7 +487,9 @@ export function MenuAccessManagement() {
               ) : (
                 <Alert>
                   <AlertDescription>
-                    No menu access has been granted to this role yet. Use the controls on the left to assign menu access.
+                    {canWrite()
+                      ? 'No menu access has been granted to this role yet. Use the controls on the left to assign menu access.'
+                      : 'No menu access has been granted to this role yet.'}
                   </AlertDescription>
                 </Alert>
               )}
