@@ -69,6 +69,16 @@ export const examAPI = {
     }
   },
 
+  // Regenerate one generated draft question
+  regenerateQuestion: async (questionData) => {
+    try {
+      const response = await api.post('/api/exams/regenerate-question/', questionData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error.message;
+    }
+  },
+
   // Save generated exam
   saveGeneratedExam: async (examData) => {
     try {

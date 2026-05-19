@@ -6,8 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from '../components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { Layers, Plus, Trash2, RefreshCw, Building, BookOpen } from 'lucide-react';
+import { AlertTriangle, Layers, Plus, Trash2, RefreshCw, Building, BookOpen } from 'lucide-react';
 import { subjectDepartmentAPI, departmentAPI, subjectAPI } from '../services/api';
+import { usePermissions } from '../hooks/usePermissions';
 import toast from 'react-hot-toast';
 
 interface Department {
@@ -29,6 +30,7 @@ interface Mapping {
 }
 
 const SubjectDepartmentMapping: React.FC = () => {
+  const { canRead, canWrite, canDelete } = usePermissions();
   const [mappings, setMappings] = useState<Mapping[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -38,9 +40,11 @@ const SubjectDepartmentMapping: React.FC = () => {
   const [selectedSubjects, setSelectedSubjects] = useState<number[]>([]);
 
   useEffect(() => {
-    loadMappings();
-    loadDepartments();
-    loadSubjects();
+    if (canRead()) {
+      loadMappings();
+      loadDepartments();
+      loadSubjects();
+    }
   }, []);
 
   const loadMappings = async () => {
@@ -88,6 +92,11 @@ const SubjectDepartmentMapping: React.FC = () => {
   };
 
   const handleCreateMapping = async () => {
+    if (!canWrite()) {
+      toast.error('You do not have permission to create department-subject mappings');
+      return;
+    }
+
     if (!selectedDepartment || selectedSubjects.length === 0) {
       toast.error('Please select a department and at least one subject');
       return;
@@ -112,6 +121,11 @@ const SubjectDepartmentMapping: React.FC = () => {
   };
 
   const handleDeleteMapping = async (mappingId: number, departmentName: string) => {
+    if (!canDelete()) {
+      toast.error('You do not have permission to delete department-subject mappings');
+      return;
+    }
+
     if (!confirm(`Are you sure you want to delete the mapping for "${departmentName}"? This action cannot be undone.`)) {
       return;
     }
@@ -154,6 +168,18 @@ const SubjectDepartmentMapping: React.FC = () => {
     return mapping ? mapping.subject_ids : [];
   };
 
+  if (!canRead()) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+          <h3 className="mb-2 text-lg font-semibold text-gray-800">Access Denied</h3>
+          <p className="text-gray-600">You don't have permission to access this page.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -170,10 +196,12 @@ const SubjectDepartmentMapping: React.FC = () => {
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button onClick={() => setIsDialogOpen(true)} className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Mapping
-          </Button>
+          {canWrite() && (
+            <Button onClick={() => setIsDialogOpen(true)} className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Mapping
+            </Button>
+          )}
         </div>
       </div>
 
@@ -227,14 +255,16 @@ const SubjectDepartmentMapping: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDeleteMapping(mapping.id, mapping.department_name)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {canDelete() && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteMapping(mapping.id, mapping.department_name)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -243,11 +273,15 @@ const SubjectDepartmentMapping: React.FC = () => {
             <div className="text-center py-8 text-gray-500">
               <Layers className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p className="text-lg font-medium">No mappings found</p>
-              <p className="text-sm">Create your first department-subject mapping to get started</p>
-              <Button onClick={() => setIsDialogOpen(true)} className="mt-4 bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Mapping
-              </Button>
+              <p className="text-sm">
+                {canWrite() ? 'Create your first department-subject mapping to get started' : 'No mappings are available yet'}
+              </p>
+              {canWrite() && (
+                <Button onClick={() => setIsDialogOpen(true)} className="mt-4 bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Mapping
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
@@ -327,7 +361,7 @@ const SubjectDepartmentMapping: React.FC = () => {
               <Button
                 onClick={handleCreateMapping}
                 className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF]"
-                disabled={!selectedDepartment || selectedSubjects.length === 0}
+                disabled={!canWrite() || !selectedDepartment || selectedSubjects.length === 0}
               >
                 Create Mapping
               </Button>

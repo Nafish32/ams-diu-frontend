@@ -61,6 +61,7 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
   const [examSaved, setExamSaved] = useState(false);
+  const [regeneratingQuestionId, setRegeneratingQuestionId] = useState<number | null>(null);
 
   // Exam configuration
   const [examConfig, setExamConfig] = useState({
@@ -282,6 +283,68 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
       toast.error(error.message || 'Failed to regenerate exam');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getQuestionDisplayText = (question: Question) => {
+    const value = question.question_text || question.questions || '';
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      return value.join(' ');
+    }
+
+    if (value && typeof value === 'object') {
+      return (
+        (value as Record<string, string>).english ||
+        (value as Record<string, string>).both ||
+        JSON.stringify(value)
+      );
+    }
+
+    return String(value || '');
+  };
+
+  const handleRegenerateQuestion = async (question: Question) => {
+    if (!user?.department_details?.id) {
+      toast.error('User department not found');
+      return;
+    }
+
+    if (examSaved) {
+      toast.error('Saved exams cannot be regenerated from this draft view.');
+      return;
+    }
+
+    try {
+      setRegeneratingQuestionId(question.id);
+      const response = await examAPI.regenerateQuestion({
+        department_id: user.department_details.id,
+        subject: question.subject,
+        marks: question.marks,
+        language: examConfig.language,
+        exclude_question_ids: generatedQuestions.map((item) => item.id),
+        exclude_question_texts: generatedQuestions.map(getQuestionDisplayText),
+      });
+
+      const replacement = response?.data?.question;
+      if (!replacement) {
+        throw new Error(response?.message || 'No replacement question returned');
+      }
+
+      setGeneratedQuestions((currentQuestions) =>
+        currentQuestions.map((item) =>
+          item.id === question.id ? replacement : item
+        )
+      );
+      toast.success('Question regenerated successfully');
+    } catch (error: any) {
+      console.error('Error regenerating question:', error);
+      toast.error(error.message || 'Failed to regenerate question');
+    } finally {
+      setRegeneratingQuestionId(null);
     }
   };
 
@@ -655,25 +718,45 @@ export function CreateQuestions({ gradientClass }: CreateQuestionsProps) {
                               </Badge>
                             </div>
                             {canWrite() && (
-                              <Button
-                                onClick={() => {
-                                  setBlockingQuestion(question);
-                                  setShowBlockDialog(true);
-                                }}
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2 className="w-4 h-4 mr-1" />
-                                Block
-                              </Button>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                  onClick={() => handleRegenerateQuestion(question)}
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={
+                                    isLoading ||
+                                    examSaved ||
+                                    regeneratingQuestionId !== null
+                                  }
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                >
+                                  {regeneratingQuestionId === question.id ? (
+                                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="w-4 h-4 mr-1" />
+                                  )}
+                                  Regenerate
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    setBlockingQuestion(question);
+                                    setShowBlockDialog(true);
+                                  }}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-1" />
+                                  Block
+                                </Button>
+                              </div>
                             )}
                           </div>
                           
                           <div className="space-y-3">
                             <div className="p-3 bg-white border rounded">
                               <p className="font-medium text-gray-800">
-                                {question.question_text || question.questions}
+                                {getQuestionDisplayText(question)}
                               </p>
                             </div>
                             

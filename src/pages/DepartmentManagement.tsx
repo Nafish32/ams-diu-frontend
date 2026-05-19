@@ -5,8 +5,9 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { Building, Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Building, Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { departmentAPI } from '../services/api';
+import { usePermissions } from '../hooks/usePermissions';
 import toast from 'react-hot-toast';
 
 interface Department {
@@ -17,6 +18,7 @@ interface Department {
 }
 
 const DepartmentManagement: React.FC = () => {
+  const { canRead, canWrite, canEdit, canDelete } = usePermissions();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -27,7 +29,9 @@ const DepartmentManagement: React.FC = () => {
   });
 
   useEffect(() => {
-    loadDepartments();
+    if (canRead()) {
+      loadDepartments();
+    }
   }, []);
 
   const loadDepartments = async () => {
@@ -49,6 +53,11 @@ const DepartmentManagement: React.FC = () => {
   };
 
   const handleCreateDepartment = async () => {
+    if (!canWrite()) {
+      toast.error('You do not have permission to create departments');
+      return;
+    }
+
     if (!formData.department_name.trim() || !formData.department_shortname.trim()) {
       toast.error('Department name and short name are required');
       return;
@@ -68,6 +77,11 @@ const DepartmentManagement: React.FC = () => {
   };
 
   const handleUpdateDepartment = async () => {
+    if (!canEdit()) {
+      toast.error('You do not have permission to edit departments');
+      return;
+    }
+
     if (!editingDepartment || !formData.department_name.trim() || !formData.department_shortname.trim()) {
       toast.error('Department name and short name are required');
       return;
@@ -87,6 +101,11 @@ const DepartmentManagement: React.FC = () => {
   };
 
   const handleDeleteDepartment = async (departmentId: number, departmentName: string) => {
+    if (!canDelete()) {
+      toast.error('You do not have permission to delete departments');
+      return;
+    }
+
     if (!confirm(`Are you sure you want to delete "${departmentName}"? This action cannot be undone.`)) {
       return;
     }
@@ -110,11 +129,21 @@ const DepartmentManagement: React.FC = () => {
   };
 
   const openCreateDialog = () => {
+    if (!canWrite()) {
+      toast.error('You do not have permission to create departments');
+      return;
+    }
+
     resetForm();
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (department: Department) => {
+    if (!canEdit()) {
+      toast.error('You do not have permission to edit departments');
+      return;
+    }
+
     setEditingDepartment(department);
     setFormData({
       department_name: department.department_name,
@@ -122,6 +151,18 @@ const DepartmentManagement: React.FC = () => {
     });
     setIsDialogOpen(true);
   };
+
+  if (!canRead()) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+          <h3 className="mb-2 text-lg font-semibold text-gray-800">Access Denied</h3>
+          <p className="text-gray-600">You don't have permission to access this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -139,10 +180,12 @@ const DepartmentManagement: React.FC = () => {
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button onClick={openCreateDialog} className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Department
-          </Button>
+          {canWrite() && (
+            <Button onClick={openCreateDialog} className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Department
+            </Button>
+          )}
         </div>
       </div>
 
@@ -178,23 +221,29 @@ const DepartmentManagement: React.FC = () => {
                         <p className="text-xs text-gray-500">ID: {department.id}</p>
                       </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openEditDialog(department)}
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteDepartment(department.id, department.department_name)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    {(canEdit() || canDelete()) && (
+                      <div className="flex gap-1">
+                        {canEdit() && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openEditDialog(department)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {canDelete() && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteDepartment(department.id, department.department_name)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -203,11 +252,15 @@ const DepartmentManagement: React.FC = () => {
             <div className="text-center py-8 text-gray-500">
               <Building className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p className="text-lg font-medium">No departments found</p>
-              <p className="text-sm">Create your first department to get started</p>
-              <Button onClick={openCreateDialog} className="mt-4 bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Department
-              </Button>
+              <p className="text-sm">
+                {canWrite() ? 'Create your first department to get started' : 'No departments are available yet'}
+              </p>
+              {canWrite() && (
+                <Button onClick={openCreateDialog} className="mt-4 bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Department
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
@@ -253,6 +306,7 @@ const DepartmentManagement: React.FC = () => {
               <Button
                 onClick={editingDepartment ? handleUpdateDepartment : handleCreateDepartment}
                 className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF]"
+                disabled={editingDepartment ? !canEdit() : !canWrite()}
               >
                 {editingDepartment ? 'Update' : 'Create'}
               </Button>

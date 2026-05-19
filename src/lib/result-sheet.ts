@@ -197,10 +197,10 @@ export function getResultStatusBadgeClass(status: AdmissionResult["result_status
   return "border-slate-200 bg-slate-50 text-slate-700";
 }
 
-export function isThresholdEligible(result: AdmissionResult, thresholdValue: number | null) {
-  if (thresholdValue === null) {
+export function isMinimumScoreEligible(result: AdmissionResult, minimumScore: number | null) {
+  if (minimumScore === null) {
     return result.result_status !== "SELECTED";
   }
 
-  return Number(result.weighted_total_marks) >= thresholdValue;
+  return Number(result.weighted_total_marks) >= minimumScore;
 }

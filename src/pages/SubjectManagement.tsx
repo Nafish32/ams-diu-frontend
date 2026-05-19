@@ -5,8 +5,9 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { BookOpen, Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, BookOpen, Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { subjectAPI } from '../services/api';
+import { usePermissions } from '../hooks/usePermissions';
 import toast from 'react-hot-toast';
 
 interface Subject {
@@ -16,6 +17,7 @@ interface Subject {
 }
 
 const SubjectManagement: React.FC = () => {
+  const { canRead, canWrite, canEdit, canDelete } = usePermissions();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -25,7 +27,9 @@ const SubjectManagement: React.FC = () => {
   });
 
   useEffect(() => {
-    loadSubjects();
+    if (canRead()) {
+      loadSubjects();
+    }
   }, []);
 
   const loadSubjects = async () => {
@@ -47,6 +51,11 @@ const SubjectManagement: React.FC = () => {
   };
 
   const handleCreateSubject = async () => {
+    if (!canWrite()) {
+      toast.error('You do not have permission to create subjects');
+      return;
+    }
+
     if (!formData.subject_name.trim()) {
       toast.error('Subject name is required');
       return;
@@ -66,6 +75,11 @@ const SubjectManagement: React.FC = () => {
   };
 
   const handleUpdateSubject = async () => {
+    if (!canEdit()) {
+      toast.error('You do not have permission to edit subjects');
+      return;
+    }
+
     if (!editingSubject || !formData.subject_name.trim()) {
       toast.error('Subject name is required');
       return;
@@ -85,6 +99,11 @@ const SubjectManagement: React.FC = () => {
   };
 
   const handleDeleteSubject = async (subjectId: number, subjectName: string) => {
+    if (!canDelete()) {
+      toast.error('You do not have permission to delete subjects');
+      return;
+    }
+
     if (!confirm(`Are you sure you want to delete "${subjectName}"? This action cannot be undone.`)) {
       return;
     }
@@ -108,17 +127,39 @@ const SubjectManagement: React.FC = () => {
   };
 
   const openCreateDialog = () => {
+    if (!canWrite()) {
+      toast.error('You do not have permission to create subjects');
+      return;
+    }
+
     resetForm();
     setIsDialogOpen(true);
   };
 
   const openEditDialog = (subject: Subject) => {
+    if (!canEdit()) {
+      toast.error('You do not have permission to edit subjects');
+      return;
+    }
+
     setEditingSubject(subject);
     setFormData({
       subject_name: subject.subject_name,
     });
     setIsDialogOpen(true);
   };
+
+  if (!canRead()) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+          <h3 className="mb-2 text-lg font-semibold text-gray-800">Access Denied</h3>
+          <p className="text-gray-600">You don't have permission to access this page.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -136,10 +177,12 @@ const SubjectManagement: React.FC = () => {
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button onClick={openCreateDialog} className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Subject
-          </Button>
+          {canWrite() && (
+            <Button onClick={openCreateDialog} className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Subject
+            </Button>
+          )}
         </div>
       </div>
 
@@ -174,23 +217,29 @@ const SubjectManagement: React.FC = () => {
                         <p className="text-sm text-gray-500">ID: {subject.id}</p>
                       </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openEditDialog(subject)}
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteSubject(subject.id, subject.subject_name)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
+                    {(canEdit() || canDelete()) && (
+                      <div className="flex gap-1">
+                        {canEdit() && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openEditDialog(subject)}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {canDelete() && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteSubject(subject.id, subject.subject_name)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </Card>
               ))}
@@ -199,11 +248,15 @@ const SubjectManagement: React.FC = () => {
             <div className="text-center py-8 text-gray-500">
               <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p className="text-lg font-medium">No subjects found</p>
-              <p className="text-sm">Create your first subject to get started</p>
-              <Button onClick={openCreateDialog} className="mt-4 bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Subject
-              </Button>
+              <p className="text-sm">
+                {canWrite() ? 'Create your first subject to get started' : 'No subjects are available yet'}
+              </p>
+              {canWrite() && (
+                <Button onClick={openCreateDialog} className="mt-4 bg-gradient-to-r from-[#2E3094] to-[#4C51BF]">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Subject
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
@@ -240,6 +293,7 @@ const SubjectManagement: React.FC = () => {
               <Button
                 onClick={editingSubject ? handleUpdateSubject : handleCreateSubject}
                 className="bg-gradient-to-r from-[#2E3094] to-[#4C51BF]"
+                disabled={editingSubject ? !canEdit() : !canWrite()}
               >
                 {editingSubject ? 'Update' : 'Create'}
               </Button>
