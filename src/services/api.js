@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base URL for the API
-const BASE_URL = 'https://api.tatomal.me/';
+const BASE_URL = 'https://admin.tatomal.me/';
 // const BASE_URL = 'http://localhost:8000';
 
 // Create axios instance with default config
